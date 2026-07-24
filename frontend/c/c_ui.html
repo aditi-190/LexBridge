@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>LexBridge | C Compiler</title>
+
+<link rel="stylesheet" href="c_style.css">
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="navbar">
+
+    <div class="logo">
+        LexBridge
+    </div>
+
+    <div class="language">
+        C Compiler
+    </div>
+
+</div>
+
+<div class="container">
+
+    <div class="editor">
+
+        <h2>Source Code</h2>
+
+        <textarea id="code" placeholder="#include<stdio.h>
+
+int main(){
+
+    printf(&quot;Hello World&quot;);
+
+    return 0;
+}"></textarea>
+
+    </div>
+
+    <div class="right-panel">
+
+        <div class="input-box">
+
+            <h2>Program Input</h2>
+
+            <textarea id="input" placeholder="Enter Input"></textarea>
+
+        </div>
+
+        <button id="runBtn">
+
+            ▶ Run Code
+
+        </button>
+
+        <div class="output-box">
+
+            <h2>Output</h2>
+
+            <pre id="output">Program output will appear here...</pre>
+
+        </div>
+
+    </div>
+
+</div>
+
+<script src="c_script.js"></script>
+
+</body>
+</html>
