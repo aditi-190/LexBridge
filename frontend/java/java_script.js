@@ -2,7 +2,6 @@ const runBtn = document.getElementById("runBtn");
 const tabButtons = document.querySelectorAll(".tab-btn");
 const tabContents = document.querySelectorAll(".tab-content");
 
-// 1. Tab Navigation Logic
 tabButtons.forEach(button => {
     button.addEventListener("click", () => {
         const tabName = button.dataset.tab;
@@ -19,7 +18,6 @@ tabButtons.forEach(button => {
     });
 });
 
-// Helper Function: Formats raw objects into clean JSON strings
 function formatData(data) {
     if (!data) return null;
     if (typeof data === "object") {
@@ -28,7 +26,6 @@ function formatData(data) {
     return data;
 }
 
-// Helper Function: Cleans extra headers/comments from Assembly Code
 function cleanAssemblyCode(code) {
     if (!code || typeof code !== "string") return code;
 
@@ -41,10 +38,9 @@ function cleanAssemblyCode(code) {
                    !trimmed.startsWith('global _start');
         })
         .join('\n')
-        .trim(); // ওপরের ফাঁকা জায়গা রিমুভ করবে
+        .trim(); 
 }
 
-// Helper Function: Formats Tokens array into "Line X: TYPE -> Value" format
 function formatTokensWithLineNumbers(tokensData) {
     if (!tokensData) return "No token information.";
 
@@ -66,7 +62,6 @@ function formatTokensWithLineNumbers(tokensData) {
     }).join('\n');
 }
 
-// Helper Function: Render Symbol Table as HTML Table
 function renderSymbolTable(data) {
     if (!data) return "No symbol table data.";
 
@@ -124,7 +119,6 @@ function renderSymbolTable(data) {
     return tableHTML;
 }
 
-// 2. Compilation Request Logic
 runBtn.addEventListener("click", async () => {
     const code = document.getElementById("code").value;
     const outputBox = document.getElementById("output");
@@ -153,7 +147,6 @@ runBtn.addEventListener("click", async () => {
         const result = await response.json();
         console.log("Java Compiler Result:", result);
 
-        // Cleaned Assembly Code Output
         if (result.targetCode) {
             tacOutput.innerText = cleanAssemblyCode(formatData(result.targetCode));
         } else if (result.output) {
@@ -162,28 +155,24 @@ runBtn.addEventListener("click", async () => {
             tacOutput.innerText = "No Assembly generated.";
         }
 
-        // Tokens Output (Formatted View)
         if (result.tokens) {
             tokensOutput.innerText = formatTokensWithLineNumbers(result.tokens);
         } else {
             tokensOutput.innerText = "No token information.";
         }
 
-        // AST Output
         if (result.ast) {
             astOutput.innerText = formatData(result.ast);
         } else {
             astOutput.innerText = "No AST generated.";
         }
 
-        // Symbol Table Output (Table View)
         if (result.symbolTable) {
             symbolTab.innerHTML = renderSymbolTable(result.symbolTable);
         } else {
             symbolTab.innerHTML = "<pre>No symbol table.</pre>";
         }
 
-        // Semantic Errors Output
         if (result.semanticErrors) {
             semanticOutput.innerText = result.semanticErrors.length === 0 
                 ? "No semantic errors." 
@@ -192,7 +181,6 @@ runBtn.addEventListener("click", async () => {
             semanticOutput.innerText = "No semantic information.";
         }
 
-        // Compilation Result Status
         if (result.success) {
             outputBox.innerText = "Compilation Successful!\n\n" + (result.message || "All compilation phases executed.");
         } else {
