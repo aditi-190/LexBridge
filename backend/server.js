@@ -2,6 +2,8 @@ const dns = require("dns");
 dns.setServers(["8.8.8.8", "8.8.4.4"]);
 
 const express = require("express");
+const cors = require("cors");
+
 const connectDB = require("./config/db");
 
 const javaRoutes = require("./routes/javaRoutes");
@@ -12,6 +14,7 @@ require("dotenv").config();
 
 const app = express();
 
+app.use(cors());
 app.use(express.json());
 
 console.log("Node Version:", process.version);

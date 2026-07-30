@@ -1,9 +1,14 @@
 const { tokenizeC } = require("./lexer");
 const { parseC } = require("./parser");
+const { buildSymbolTable } = require("./symbolTable");
 const { analyzeSemantic } = require("./semanticAnalyzer");
-const { executeC } = require("./executor");
+const { generateTAC } = require("./tacGenerator");
 
 function compileC(sourceCode) {
+
+    // =========================
+    // 1. Lexical Analysis
+    // =========================
 
     const lexical = tokenizeC(sourceCode);
 
@@ -21,7 +26,12 @@ function compileC(sourceCode) {
 
     }
 
-    
+
+    // =========================
+    // 2. Syntax Analysis
+    // 3. AST Construction
+    // =========================
+
     const syntax = parseC(lexical.tokens);
 
     if (syntax.errors.length > 0) {
@@ -38,8 +48,38 @@ function compileC(sourceCode) {
 
     }
 
-    
-    const semantic = analyzeSemantic(syntax.ast);
+    const ast = syntax.ast;
+
+
+    // =========================
+    // 4. Symbol Table
+    // =========================
+
+    const symbolResult = buildSymbolTable(ast);
+
+    if (symbolResult.errors.length > 0) {
+
+        return {
+
+            success: false,
+
+            phase: "Symbol Table",
+
+            errors: symbolResult.errors,
+
+            ast: ast,
+
+            symbolTable: symbolResult.symbolTable
+
+        };
+
+    }
+
+
+    // 5. Semantic Analysis
+ 
+
+    const semantic = analyzeSemantic(ast);
 
     if (semantic.errors.length > 0) {
 
@@ -49,26 +89,39 @@ function compileC(sourceCode) {
 
             phase: "Semantic Analysis",
 
-            errors: semantic.errors
+            errors: semantic.errors,
+
+            ast: ast,
+
+            symbolTable: symbolResult.symbolTable
 
         };
 
     }
 
+    // 6. Intermediate Code Generation
    
-    const execution = executeC(sourceCode);
+
+    const tac = generateTAC(ast);
+
+    // Final Result
+  
 
     return {
 
-        success: execution.success,
+        success: true,
 
-        ast: syntax.ast,
+        phase: "Compilation Successful",
 
-        symbolTable: semantic.symbolTable,
+        tokens: lexical.tokens,
 
-        output: execution.output,
+        ast: ast,
 
-        error: execution.error
+        symbolTable: symbolResult.symbolTable,
+
+        semanticErrors: semantic.errors,
+
+        tac: tac.code
 
     };
 

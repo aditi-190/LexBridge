@@ -62,11 +62,61 @@ int main(){
 
         <div class="output-box">
 
-            <h2>Output</h2>
+    <h2>Compiler Result</h2>
 
-            <pre id="output">Program output will appear here...</pre>
+    <div class="tabs">
 
-        </div>
+        <button class="tab-btn active" data-tab="output">
+            Output
+        </button>
+
+        <button class="tab-btn" data-tab="tokens">
+            Tokens
+        </button>
+
+        <button class="tab-btn" data-tab="ast">
+            AST
+        </button>
+
+        <button class="tab-btn" data-tab="symbol">
+            Symbol Table
+        </button>
+
+        <button class="tab-btn" data-tab="semantic">
+            Semantic
+        </button>
+
+        <button class="tab-btn" data-tab="tac">
+            TAC
+        </button>
+
+    </div>
+
+    <div class="tab-content active" id="outputTab">
+        <pre id="output">Compiler result will appear here...</pre>
+    </div>
+
+    <div class="tab-content" id="tokensTab">
+        <pre id="tokensOutput">No tokens yet.</pre>
+    </div>
+
+    <div class="tab-content" id="astTab">
+        <pre id="astOutput">No AST yet.</pre>
+    </div>
+
+    <div class="tab-content" id="symbolTab">
+        <pre id="symbolOutput">No symbol table yet.</pre>
+    </div>
+
+    <div class="tab-content" id="semanticTab">
+        <pre id="semanticOutput">No semantic result yet.</pre>
+    </div>
+
+    <div class="tab-content" id="tacTab">
+        <pre id="tacOutput">No TAC yet.</pre>
+    </div>
+
+</div>
 
     </div>
 

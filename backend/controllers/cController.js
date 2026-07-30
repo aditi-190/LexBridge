@@ -6,32 +6,27 @@ function compile(req, res) {
 
         const { code } = req.body;
 
-        if (!code) {
+        if (!code || !code.trim()) {
 
             return res.status(400).json({
-
                 success: false,
-
                 message: "Source code is required."
-
             });
 
         }
 
         const result = runCompiler(code);
 
-        res.json(result);
+        return res.json(result);
 
-    }
+    } catch (err) {
 
-    catch (err) {
+        console.error("C Compiler Error:", err);
 
-        res.status(500).json({
-
+        return res.status(500).json({
             success: false,
-
+            message: "Compiler error",
             error: err.message
-
         });
 
     }
@@ -39,7 +34,5 @@ function compile(req, res) {
 }
 
 module.exports = {
-
     compile
-
 };

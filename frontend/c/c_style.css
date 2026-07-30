@@ -189,3 +189,60 @@ height:350px;
 }
 
 }
+.tabs {
+
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    margin-bottom: 15px;
+
+}
+
+.tab-btn {
+
+    width: auto;
+
+    margin: 0;
+
+    padding: 10px 16px;
+
+    border: 1px solid #334155;
+
+    background: #0f172a;
+
+    color: #cbd5e1;
+
+    border-radius: 8px;
+
+    font-size: 14px;
+
+}
+
+.tab-btn:hover {
+
+    transform: none;
+
+    box-shadow: none;
+
+}
+
+.tab-btn.active {
+
+    background: #3b82f6;
+
+    color: white;
+
+}
+
+.tab-content {
+
+    display: none;
+
+}
+
+.tab-content.active {
+
+    display: block;
+
+}

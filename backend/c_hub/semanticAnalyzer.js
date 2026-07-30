@@ -1,12 +1,24 @@
+const { SymbolTable } = require("./symbolTable");
+
 class SemanticAnalyzer {
 
-    constructor(ast) {
+    constructor(ast, symbolTableData = null) {
 
         this.ast = ast;
 
-        this.symbolTable = {};
+        this.symbolTable = new SymbolTable();
 
         this.errors = [];
+
+        if (symbolTableData) {
+
+            this.externalSymbolTable = symbolTableData;
+
+        } else {
+
+            this.externalSymbolTable = null;
+
+        }
 
     }
 
@@ -16,9 +28,9 @@ class SemanticAnalyzer {
 
         return {
 
-            symbolTable: this.symbolTable,
+            errors: this.errors,
 
-            errors: this.errors
+            symbolTable: this.symbolTable.getAllSymbols()
 
         };
 
@@ -32,37 +44,85 @@ class SemanticAnalyzer {
 
             case "Program":
 
-                node.body.forEach(statement => {
+                node.body.forEach(
+                    child => this.visit(child)
+                );
 
-                    this.visit(statement);
+                break;
 
-                });
+            case "MainFunction":
+
+                this.visit(node.body);
+
+                break;
+
+            case "Block":
+
+                this.symbolTable.enterScope();
+
+                node.body.forEach(
+                    statement => this.visit(statement)
+                );
+
+                this.symbolTable.exitScope();
 
                 break;
 
             case "VariableDeclaration":
 
-                this.visitVariableDeclaration(node);
+                this.checkDeclaration(node);
 
                 break;
 
             case "Assignment":
 
-                this.visitAssignment(node);
+                this.checkAssignment(node);
+
+                break;
+
+            case "IfStatement":
+
+                this.checkIfStatement(node);
+
+                break;
+
+            case "WhileStatement":
+
+                this.checkWhileStatement(node);
+
+                break;
+
+            case "PrintStatement":
+
+                this.checkExpression(node.value);
+
+                break;
+
+            case "ReturnStatement":
+
+                this.checkExpression(node.value);
 
                 break;
 
             case "BinaryExpression":
 
-                this.visit(node.left);
+                this.checkExpression(node);
 
-                this.visit(node.right);
+                break;
+
+            case "UnaryExpression":
+
+                this.checkExpression(node);
 
                 break;
 
             case "Identifier":
 
-                this.visitIdentifier(node);
+                this.checkIdentifier(node);
+
+                break;
+
+            case "Literal":
 
                 break;
 
@@ -70,13 +130,25 @@ class SemanticAnalyzer {
 
     }
 
-    visitVariableDeclaration(node) {
+    checkDeclaration(node) {
 
-        if (this.symbolTable[node.identifier]) {
+        const result = this.symbolTable.declare(
+
+            node.identifier,
+
+            node.dataType,
+
+            node.line || 0
+
+        );
+
+        if (!result.success) {
 
             this.errors.push({
 
-                message: `Variable '${node.identifier}' already declared`
+                message: result.error,
+
+                line: node.line || 0
 
             });
 
@@ -84,45 +156,109 @@ class SemanticAnalyzer {
 
         }
 
-        this.symbolTable[node.identifier] = {
-
-            type: node.dataType
-
-        };
-
         if (node.value) {
 
-            this.visit(node.value);
+            this.checkExpression(node.value);
 
         }
 
     }
 
-    visitAssignment(node) {
+    checkAssignment(node) {
 
-        if (!this.symbolTable[node.identifier]) {
+        const symbol = this.symbolTable.lookup(
+            node.identifier
+        );
+
+        if (!symbol) {
 
             this.errors.push({
 
-                message: `Variable '${node.identifier}' not declared`
+                message:
+                    `Variable '${node.identifier}' not declared`
+
+            });
+
+            this.checkExpression(node.value);
+
+            return;
+
+        }
+
+        this.checkExpression(node.value);
+
+    }
+
+    checkIdentifier(node) {
+
+        const symbol = this.symbolTable.lookup(
+            node.name
+        );
+
+        if (!symbol) {
+
+            this.errors.push({
+
+                message:
+                    `Variable '${node.name}' not declared`
 
             });
 
         }
 
-        this.visit(node.value);
+    }
+
+    checkIfStatement(node) {
+
+        this.checkExpression(node.condition);
+
+        this.visit(node.thenBranch);
+
+        if (node.elseBranch) {
+
+            this.visit(node.elseBranch);
+
+        }
 
     }
 
-    visitIdentifier(node) {
+    checkWhileStatement(node) {
 
-        if (!this.symbolTable[node.name]) {
+        this.checkExpression(node.condition);
 
-            this.errors.push({
+        this.visit(node.body);
 
-                message: `Variable '${node.name}' not declared`
+    }
 
-            });
+    checkExpression(node) {
+
+        if (!node) return;
+
+        switch (node.type) {
+
+            case "Identifier":
+
+                this.checkIdentifier(node);
+
+                break;
+
+            case "Literal":
+
+                break;
+
+            case "BinaryExpression":
+
+                this.checkExpression(node.left);
+
+                this.checkExpression(node.right);
+
+                break;
+
+            case "UnaryExpression":
+
+                this.checkExpression(node.operand);
+
+                break;
 
         }
 
@@ -139,6 +275,8 @@ function analyzeSemantic(ast) {
 }
 
 module.exports = {
+
+    SemanticAnalyzer,
 
     analyzeSemantic
 
