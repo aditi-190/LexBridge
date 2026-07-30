@@ -1,435 +1,213 @@
-const TokenType = {
-    KEYWORD: "KEYWORD",
-    IDENTIFIER: "IDENTIFIER",
-    NUMBER: "NUMBER",
-    STRING: "STRING",
-    OPERATOR: "OPERATOR",
-    PUNCTUATION: "PUNCTUATION",
-    EOF: "EOF"
-};
-const KEYWORDS = [
-    "public",
-    "class",
-    "static",
-    "void",
-    "main",
-    "String",
+const keywords = require("./keywords");
+const tokenTypes = require("./token");
+const operators = require("./operators");
+const delimiters = require("./delimiters");
 
-    "int",
-    "float",
-    "double",
-    "char",
-    "boolean",
+function lexer(code) {
+    let tokens = [];
+    let i = 0;
+    let line = 1;
+    let column = 1;
 
-    "if",
-    "else",
-    "while",
-    "for",
+    while (i < code.length) {
+        let char = code[i];
 
-    "true",
-    "false",
-
-    "return"
-];
-const OPERATORS = [
-    "==",
-    "!=",
-    "<=",
-    ">=",
-    "&&",
-    "||",
-    "++",
-    "--",
-
-    "=",
-    "+",
-    "-",
-    "*",
-    "/",
-    "%",
-    "<",
-    ">",
-    "!"
-];
-const PUNCTUATION = [
-    "(",
-    ")",
-    "{",
-    "}",
-    "[",
-    "]",
-    ";",
-    ",",
-    "."
-];
-class Lexer {
-
-    constructor(source) {
-
-        this.source = source;
-
-        this.position = 0;
-
-        this.line = 1;
-
-        this.column = 1;
-
-        this.tokens = [];
-
-        this.errors = [];
-
-    }
-
-    peek(offset = 0) {
-
-        return this.source[this.position + offset];
-
-    }
-
-    isAtEnd() {
-
-        return this.position >= this.source.length;
-
-    }
-
-    advance() {
-
-        const ch = this.source[this.position];
-
-        this.position++;
-
-        if (ch === "\n") {
-
-            this.line++;
-
-            this.column = 1;
-
-        } else {
-
-            this.column++;
-
+        if (char === " " || char === "\t" || char === "\r") {
+            i++;
+            column++;
+            continue;
         }
 
-        return ch;
+        if (char === "\n") {
+            i++;
+            line++;
+            column = 1;
+            continue;
+        }
 
-    }
+        if (/[a-zA-Z_]/.test(char)) {
+            let word = "";
+            let startColumn = column;
 
-    isDigit(ch) {
-
-        return ch >= "0" && ch <= "9";
-
-    }
-
-    isLetter(ch) {
-
-        return (
-            (ch >= "a" && ch <= "z") ||
-            (ch >= "A" && ch <= "Z") ||
-            ch === "_" ||
-            ch === "$"
-        );
-
-    }
-
-    isLetterOrDigit(ch) {
-
-        return this.isLetter(ch) || this.isDigit(ch);
-
-    }
-
-    skipWhitespace() {
-
-        while (!this.isAtEnd()) {
-
-            const ch = this.peek();
-
-            if (
-                ch === " " ||
-                ch === "\t" ||
-                ch === "\r" ||
-                ch === "\n"
-            ) {
-
-                this.advance();
+            while (i < code.length && /[a-zA-Z0-9_]/.test(code[i])) {
+                word += code[i];
+                i++;
+                column++;
             }
 
-            else if (ch === "/" && this.peek(1) === "/") {
+            if (word === "true" || word === "false") {
+                tokens.push({
+                    type: tokenTypes.BOOLEAN,
+                    value: word,
+                    line,
+                    column: startColumn
+                });
+                continue;
+            }
 
-                while (!this.isAtEnd() && this.peek() !== "\n") {
+            if (keywords.includes(word)) {
+                tokens.push({
+                    type: tokenTypes.KEYWORD,
+                    value: word,
+                    line,
+                    column: startColumn
+                });
+            } else {
+                tokens.push({
+                    type: tokenTypes.IDENTIFIER,
+                    value: word,
+                    line,
+                    column: startColumn
+                });
+            }
+            continue;
+        }
 
-                    this.advance();
+        if (/[0-9]/.test(char)) {
+            let number = "";
+            let startColumn = column;
+            let hasDot = false;
 
+            while (i < code.length && (/[0-9]/.test(code[i]) || code[i] === ".")) {
+                if (code[i] === ".") {
+                    if (hasDot) break;
+                    hasDot = true;
                 }
-
+                number += code[i];
+                i++;
+                column++;
             }
 
-            else if (ch === "/" && this.peek(1) === "*") {
-
-                this.advance();
-                this.advance();
-
-                while (
-                    !this.isAtEnd() &&
-                    !(this.peek() === "*" && this.peek(1) === "/")
-                ) {
-
-                    this.advance();
-
-                }
-
-                if (!this.isAtEnd()) {
-
-                    this.advance();
-                    this.advance();
-
-                }
-
-            }
-
-            else {
-
-                break;
-
-            }
-
+            tokens.push({
+                type: hasDot ? tokenTypes.FLOAT : tokenTypes.INTEGER,
+                value: number,
+                line,
+                column: startColumn
+            });
+            continue;
         }
 
-    }
+        if (char === '"') {
+            let startColumn = column;
+            i++;
+            column++;
+            let text = "";
 
-    scanNumber() {
-
-        const start = this.position;
-
-        while (!this.isAtEnd() && this.isDigit(this.peek())) {
-
-            this.advance();
-
-        }
-
-        if (
-            this.peek() === "." &&
-            this.isDigit(this.peek(1))
-        ) {
-
-            this.advance();
-
-            while (!this.isAtEnd() && this.isDigit(this.peek())) {
-
-                this.advance();
-
+            while (i < code.length && code[i] !== '"') {
+                text += code[i];
+                i++;
+                column++;
             }
 
-        }
-
-        return {
-
-            type: TokenType.NUMBER,
-
-            value: this.source.slice(start, this.position)
-
-        };
-
-    }
-    scanIdentifier() {
-
-        const start = this.position;
-
-        while (
-            !this.isAtEnd() &&
-            this.isLetterOrDigit(this.peek())
-        ) {
-
-            this.advance();
-
-        }
-
-        const text = this.source.slice(start, this.position);
-
-        return {
-
-            type: KEYWORDS.includes(text)
-                ? TokenType.KEYWORD
-                : TokenType.IDENTIFIER,
-
-            value: text
-
-        };
-
-    }
-    scanString() {
-
-        this.advance();
-
-        let value = "";
-
-        while (
-            !this.isAtEnd() &&
-            this.peek() !== '"'
-        ) {
-
-            value += this.advance();
-
-        }
-
-        if (!this.isAtEnd()) {
-
-            this.advance();
-
-        }
-
-        return {
-
-            type: TokenType.STRING,
-
-            value
-
-        };
-
-    }
-    matchOperator() {
-
-        for (const op of OPERATORS) {
-
-            if (this.source.startsWith(op, this.position)) {
-
-                return {
-
-                    value: op,
-
-                    length: op.length
-
-                };
-
+            if (i >= code.length) {
+                throw new Error(`Unterminated string at line ${line}`);
             }
 
+            i++;
+            column++;
+
+            tokens.push({
+                type: tokenTypes.STRING,
+                value: text,
+                line,
+                column: startColumn
+            });
+            continue;
         }
 
-        return null;
-
-    }
-    tokenize() {
-
-        while (!this.isAtEnd()) {
-
-            this.skipWhitespace();
-
-            if (this.isAtEnd()) break;
-
-            const startLine = this.line;
-            const startColumn = this.column;
-
-            const ch = this.peek();
-
-            let token = null;
-
-            if (this.isDigit(ch)) {
-
-                token = this.scanNumber();
-
+        if (char === "/" && code[i + 1] === "/") {
+            while (i < code.length && code[i] !== "\n") {
+                i++;
+                column++;
             }
+            continue;
+        }
+        if (char === "/" && code[i + 1] === "*") {
+            i += 2;
+            column += 2;
 
-            else if (this.isLetter(ch)) {
-
-                token = this.scanIdentifier();
-
-            }
-
-            else if (ch === '"') {
-
-                token = this.scanString();
-
-            }
-
-            else {
-
-                const op = this.matchOperator();
-
-                if (op) {
-
-                    this.position += op.length;
-                    this.column += op.length;
-
-                    token = {
-
-                        type: TokenType.OPERATOR,
-                        value: op.value
-
-                    };
-
-                }
-
-                else if (PUNCTUATION.includes(ch)) {
-
-                    this.advance();
-
-                    token = {
-
-                        type: TokenType.PUNCTUATION,
-                        value: ch
-
-                    };
-
-                }
-
-                else {
-
-                    this.errors.push({
-
-                        message: `Invalid Character '${ch}'`,
-                        line: startLine,
-                        column: startColumn
-
-                    });
-
-                    this.advance();
-
+            while (i < code.length && !(code[i] === "*" && code[i + 1] === "/")) {
+                if (code[i] === "\n") {
+                    line++;
+                    column = 1;
+                    i++;
                     continue;
-
                 }
-
+                i++;
+                column++;
             }
 
-            token.line = startLine;
-            token.column = startColumn;
-
-            this.tokens.push(token);
-
+            i += 2;
+            column += 2;
+            continue;
         }
-                this.tokens.push({
 
-            type: TokenType.EOF,
+        let twoChar = code.substring(i, i + 2);
+        if (operators.includes(twoChar)) {
+            tokens.push({
+                type: tokenTypes.OPERATOR,
+                value: twoChar,
+                line,
+                column
+            });
+            i += 2;
+            column += 2;
+            continue;
+        }
 
-            value: "",
+        if (operators.includes(char)) {
+            tokens.push({
+                type: tokenTypes.OPERATOR,
+                value: char,
+                line,
+                column
+            });
+            i++;
+            column++;
+            continue;
+        }
 
-            line: this.line,
+        switch (char) {
+            case "(":
+                tokens.push({ type: tokenTypes.LPAREN, value: "(", line, column });
+                break;
+            case ")":
+                tokens.push({ type: tokenTypes.RPAREN, value: ")", line, column });
+                break;
+            case "{":
+                tokens.push({ type: tokenTypes.LBRACE, value: "{", line, column });
+                break;
+            case "}":
+                tokens.push({ type: tokenTypes.RBRACE, value: "}", line, column });
+                break;
+            case "[":
+                tokens.push({ type: tokenTypes.LBRACKET, value: "[", line, column });
+                break;
+            case "]":
+                tokens.push({ type: tokenTypes.RBRACKET, value: "]", line, column });
+                break;
+            case ";":
+                tokens.push({ type: tokenTypes.SEMICOLON, value: ";", line, column });
+                break;
+            case ",":
+                tokens.push({ type: tokenTypes.COMMA, value: ",", line, column });
+                break;
+            default:
+                throw new Error(`Unexpected character '${char}' at line ${line}, column ${column}`);
+        }
 
-            column: this.column
-
-        });
-
-        return {
-
-            tokens: this.tokens,
-
-            errors: this.errors
-
-        };
-
+        i++;
+        column++;
     }
 
-} 
-function tokenizeJava(source) {
+    tokens.push({
+        type: tokenTypes.EOF,
+        value: "EOF",
+        line,
+        column
+    });
 
-    const lexer = new Lexer(source);
-
-    return lexer.tokenize();
-
+    return tokens;
 }
 
-module.exports = {
-
-    tokenizeJava,
-
-    TokenType
-
-};
+module.exports = lexer;

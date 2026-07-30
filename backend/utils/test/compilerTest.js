@@ -1,14 +1,35 @@
-const { compileJava } = require("../../services/javaCompiler");
+const compileJava =
+require("../../java_hub/compileJava");
 
-const code = `
-public class Main {
-    public static void main(String[] args) {
-        int a = 10;
-        a = a + 5;
-    }
+
+
+let code = `
+
+int a = 10;
+
+
+print(a);
+
+
+for(i=0;i<5;i++){
+
+print(i);
+
 }
+
 `;
 
-const result = compileJava(code);
 
-console.log(JSON.stringify(result, null, 2));
+
+let result =
+compileJava(code);
+
+
+
+console.log(
+    JSON.stringify(
+        result,
+        null,
+        2
+    )
+);

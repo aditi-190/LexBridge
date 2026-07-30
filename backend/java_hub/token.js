@@ -1,0 +1,27 @@
+module.exports = {
+
+    KEYWORD: "KEYWORD",
+    IDENTIFIER: "IDENTIFIER",
+
+    INTEGER: "INTEGER",
+    FLOAT: "FLOAT",
+    STRING: "STRING",
+    BOOLEAN: "BOOLEAN",
+
+    OPERATOR: "OPERATOR",
+
+    LPAREN: "LPAREN",
+    RPAREN: "RPAREN",
+
+    LBRACE: "LBRACE",
+    RBRACE: "RBRACE",
+
+    LBRACKET: "LBRACKET",
+    RBRACKET: "RBRACKET",
+
+    SEMICOLON: "SEMICOLON",
+    COMMA: "COMMA",
+
+    EOF: "EOF"
+
+};
