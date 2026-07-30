@@ -25,7 +25,8 @@ class SemanticAnalyzer {
         this.visitProgram(ast);
         return {
             isValid: this.errors.length === 0,
-            errors: this.errors
+            errors: this.errors,
+            symbolTable: this.currentScope ? this.currentScope.toObject() : null
         };
     }
 

@@ -1,6 +1,16 @@
 class TargetCodeGenerator {
     constructor() {
         this.asm = [];
+        this.lastJumpCondition = "JE";
+    }
+
+    formatOperand(arg) {
+        if (arg === null || arg === undefined) return "";
+        let str = String(arg).trim();
+        if (!isNaN(str) || str.startsWith("[")) {
+            return str;
+        }
+        return `[${str}]`;
     }
 
     emit(instruction) {
@@ -9,14 +19,14 @@ class TargetCodeGenerator {
 
     generate(tacInstructions) {
         this.asm = [];
-        this.emit("; --- Generated Assembly Code (x86-style) ---");
-        this.emit("section .text");
-        this.emit("global _start");
-        this.emit("");
-
+        
         for (const inst of tacInstructions) {
             this.translateInstruction(inst);
         }
+
+        this.emit("    MOV EAX, 1");
+        this.emit("    XOR EBX, EBX");
+        this.emit("    INT 0x80");
 
         return this.asm;
     }
@@ -29,52 +39,45 @@ class TargetCodeGenerator {
             return;
         }
 
-        if (op === "END_FUNC") {
-            this.emit(`    ; End of function ${result}`);
-            this.emit("");
-            return;
-        }
-
-        if (op === "PARAM_DECL") {
-            this.emit(`    ; Parameter declaration: ${result}`);
+        if (op === "END_FUNC" || op === "PARAM_DECL") {
             return;
         }
 
         if (op === "=") {
-            this.emit(`    MOV EAX, ${arg1}`);
+            this.emit(`    MOV EAX, ${this.formatOperand(arg1)}`);
             this.emit(`    MOV [${result}], EAX`);
             return;
         }
 
         if (["+", "-", "*", "/"].includes(op)) {
-            this.emit(`    MOV EAX, ${arg1}`);
-            if (op === "+") this.emit(`    ADD EAX, ${arg2}`);
-            if (op === "-") this.emit(`    SUB EAX, ${arg2}`);
-            if (op === "*") this.emit(`    IMUL EAX, ${arg2}`);
+            this.emit(`    MOV EAX, ${this.formatOperand(arg1)}`);
+            if (op === "+") this.emit(`    ADD EAX, ${this.formatOperand(arg2)}`);
+            if (op === "-") this.emit(`    SUB EAX, ${this.formatOperand(arg2)}`);
+            if (op === "*") this.emit(`    IMUL EAX, ${this.formatOperand(arg2)}`);
             if (op === "/") {
                 this.emit(`    CDQ`);
-                this.emit(`    IDIV ${arg2}`);
+                this.emit(`    IDIV ${this.formatOperand(arg2)}`);
             }
             this.emit(`    MOV [${result}], EAX`);
             return;
         }
-        if (["==", "!=", "<", ">", "<=", ">="].includes(op)) {
-            this.emit(`    MOV EAX, ${arg1}`);
-            this.emit(`    CMP EAX, ${arg2}`);
-            
-            let jumpCondition = "JNE";
-            if (op === ">") jumpCondition = "JLE";
-            if (op === "<") jumpCondition = "JGE";
-            if (op === "==") jumpCondition = "JNE";
 
-            this.emit(`    ; Evaluation for ${result}`);
+        if (["==", "!=", "<", ">", "<=", ">="].includes(op)) {
+            this.emit(`    MOV EAX, ${this.formatOperand(arg1)}`);
+            this.emit(`    CMP EAX, ${this.formatOperand(arg2)}`);
+            
+            if (op === ">")  this.lastJumpCondition = "JLE";
+            if (op === "<")  this.lastJumpCondition = "JGE";
+            if (op === ">=") this.lastJumpCondition = "JL";
+            if (op === "<=") this.lastJumpCondition = "JG";
+            if (op === "==") this.lastJumpCondition = "JNE";
+            if (op === "!=") this.lastJumpCondition = "JE";
+
             return;
         }
 
         if (op === "IFFALSE") {
-            this.emit(`    ; Conditional Jump`);
-            this.emit(`    CMP EAX, 0`);
-            this.emit(`    JE ${result}`);
+            this.emit(`    ${this.lastJumpCondition} ${result}`);
             return;
         }
 
@@ -84,13 +87,13 @@ class TargetCodeGenerator {
         }
 
         if (op === "PARAM") {
-            this.emit(`    PUSH ${arg1}`);
+            this.emit(`    PUSH ${this.formatOperand(arg1)}`);
             return;
         }
 
         if (op === "CALL") {
             this.emit(`    CALL ${arg1}`);
-            this.emit(`    ADD ESP, ${arg2 * 4}`); // Clean up stack (4 bytes per param)
+            this.emit(`    ADD ESP, ${arg2 * 4}`);
             if (result) {
                 this.emit(`    MOV [${result}], EAX`);
             }
@@ -98,7 +101,7 @@ class TargetCodeGenerator {
         }
 
         if (op === "RETURN") {
-            this.emit(`    MOV EAX, ${arg1}`);
+            this.emit(`    MOV EAX, ${this.formatOperand(arg1)}`);
             this.emit(`    RET`);
             return;
         }

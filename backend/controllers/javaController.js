@@ -24,7 +24,14 @@ exports.compileJavaCode = (req, res) => {
         return res.status(200).json({
             success: true,
             message: "Compilation successful",
-            output: result.targetCode || ""
+            output: result.targetCode || "",
+            tokens: result.tokens || [],
+            ast: result.ast || null,
+            symbolTable: result.semantic?.symbolTable || null,
+            semanticErrors: result.semantic?.errors || [],
+            tac: result.tac || [],
+            optimizedTac: result.optimizedTac || [],
+            targetCode: result.targetCode || ""
         });
     }
 
@@ -37,6 +44,11 @@ exports.compileJavaCode = (req, res) => {
     return res.status(400).json({
         success: false,
         message: "Compilation failed",
+        output: result.targetCode || "",
+        tokens: result.tokens || [],
+        ast: result.ast || null,
+        symbolTable: result.semantic?.symbolTable || null,
+        semanticErrors: result.semantic?.errors || [],
         error: errors[0],
         errors
     });

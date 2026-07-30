@@ -1,7 +1,7 @@
 const Parser = require("./parser");
 const SemanticAnalyzer = require("./semanticAnalyzer");
 const TACGenerator = require("./tacGenerator");
-
+const TargetCodeGenerator = require("./targetCodeGenerator"); 
 const code = `
 int add(int a, int b) {
     int sum = a + b;
@@ -33,6 +33,13 @@ try {
         tacLines.forEach((line, index) => {
             console.log(`${index + 1}.\t${line}`);
         });
+
+        const targetGen = new TargetCodeGenerator();
+       
+        const asmInstructions = targetGen.generate(generator.instructions || generator.tac);
+
+        console.log("\n=== Generated Assembly Code (x86) ===");
+        console.log(asmInstructions.join("\n"));
     }
 } catch (err) {
     console.error("Error:", err.message);

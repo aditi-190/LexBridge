@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LexBridge | Java Compiler</title>
+    <link rel="stylesheet" href="java_style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div class="navbar">
+        <div class="logo">LexBridge</div>
+        <div class="language">Java Compiler</div>
+    </div>
+
+    <div class="container">
+        <div class="editor">
+            <h2>Source Code</h2>
+            <textarea id="code" placeholder="int add(int a,int b){return a+b;} int x = add(5,3);"></textarea>
+        </div>
+
+        <div class="right-panel">
+            <div class="input-box">
+                <h2>Program Input</h2>
+                <textarea id="input" placeholder="Enter Input"></textarea>
+            </div>
+
+            <button id="runBtn">▶ Run Code</button>
+
+            <div class="output-box">
+                <h2>Compiler Result</h2>
+
+                <div class="tabs">
+                    <button class="tab-btn active" data-tab="output">Output</button>
+                    <button class="tab-btn" data-tab="tokens">Tokens</button>
+                    <button class="tab-btn" data-tab="ast">AST</button>
+                    <button class="tab-btn" data-tab="symbol">Symbol Table</button>
+                    <button class="tab-btn" data-tab="semantic">Semantic</button>
+                    <button class="tab-btn" data-tab="tac">Assembly Code</button>
+                </div>
+
+                <div class="tab-content active" id="outputTab">
+                    <pre id="output">Compiler result will appear here...</pre>
+                </div>
+
+                <div class="tab-content" id="tokensTab">
+                    <pre id="tokensOutput">No tokens yet.</pre>
+                </div>
+
+                <div class="tab-content" id="astTab">
+                    <pre id="astOutput">No AST yet.</pre>
+                </div>
+
+                <div class="tab-content" id="symbolTab">
+                    <pre id="symbolOutput">No symbol table yet.</pre>
+                </div>
+
+                <div class="tab-content" id="semanticTab">
+                    <pre id="semanticOutput">No semantic result yet.</pre>
+                </div>
+
+                <div class="tab-content" id="tacTab">
+                    <pre id="tacOutput">No Assembly generated yet.</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="java_script.js"></script>
+</body>
+</html>

@@ -1,4 +1,3 @@
-// backend/java_hub/optimizeTest.js
 const Parser = require("./parser");
 const SemanticAnalyzer = require("./semanticAnalyzer");
 const TACGenerator = require("./tacGenerator");
@@ -11,7 +10,7 @@ int add(int a, int b) {
 }
 
 int x = add(5, 10);
-int constantCalc = 10 + 20 * 2; // Test Constant Folding
+int constantCalc = 10 + 20 * 2; 
 
 if (x > 5) {
     print(x);
@@ -31,7 +30,6 @@ try {
     console.log("=== ORIGINAL TAC ===");
     generator.toStringArray().forEach((line, idx) => console.log(`${idx + 1}.\t${line}`));
 
-    // Optimization Step
     const optimizer = new Optimizer(rawTAC);
     generator.instructions = optimizer.optimize();
 

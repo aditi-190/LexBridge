@@ -1,4 +1,3 @@
-// backend/java_hub/fullCompilerTest.js
 const Parser = require("./parser");
 const SemanticAnalyzer = require("./semanticAnalyzer");
 const TACGenerator = require("./tacGenerator");
