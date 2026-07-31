@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>LexBridge | C++ Compiler</title>
+
+    <link rel="stylesheet" href="cpp_style.css">
+
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+</head>
+
+<body>
+
+    <!-- Navbar -->
+
+    <div class="navbar">
+
+        <div class="logo">
+
+            LexBridge
+
+        </div>
+
+        <div class="language">
+
+            C++ Compiler
+
+        </div>
+
+    </div>
+
+
+    <!-- Main Container -->
+
+    <div class="container">
+
+
+        <!-- Left -->
+
+        <div class="editor">
+
+            <h2>Source Code</h2>
+
+            <textarea id="code" placeholder="#include<iostream>
+
+using namespace std;
+
+int main(){
+
+    cout << &quot;Hello World&quot;;
+
+    return 0;
+}"></textarea>
+
+        </div>
+
+
+        <!-- Right -->
+
+        <div class="right-panel">
+
+            <div class="input-box">
+
+                <h2>Program Input</h2>
+
+                <textarea id="input" placeholder="Enter Program Input"></textarea>
+
+            </div>
+
+
+            <!-- Buttons -->
+
+            <div class="button-group">
+
+                <button type ="button" id="runBtn">
+
+                    ▶ Run
+
+                </button>
+
+                <button type="button" id="saveBtn">
+
+                    💾 Save
+
+                </button>
+
+                <button type ="button" id="shareBtn">
+
+                    🔗 Share
+
+                </button>
+
+            </div>
+
+
+            <!-- Output -->
+
+            <div class="output-box">
+
+                <h2>Program Output</h2>
+
+                <pre id="output">Program output will appear here...</pre>
+
+            </div>
+
+        </div>
+
+    </div>
+
+<script src="cpp_script.js"></script>
+
+</body>
+
+</html>

@@ -3,13 +3,20 @@ const { parseC } = require("./parser");
 const { analyzeSemantic } = require("./semanticAnalyzer");
 
 const code = `
+int add(int a, int b) {
+
+    int result;
+
+    result = a + b;
+
+    return result;
+}
+
 int main() {
 
     int x;
 
-    x = 10;
-
-    y = 20;
+    x = add(10, 20);
 
     return 0;
 }
@@ -21,16 +28,28 @@ const syntax = parseC(lexical.tokens);
 
 const semantic = analyzeSemantic(syntax.ast);
 
-console.log("===== SEMANTIC TEST =====");
+console.log("\n===== FUNCTION SEMANTIC TEST =====");
 
-console.log("Errors:");
+console.log("\nLexer Errors:");
+console.log(lexical.errors);
 
+console.log("\nParser Errors:");
+console.log(syntax.errors);
+
+console.log("\nSemantic Errors:");
 console.log(
-    JSON.stringify(semantic.errors, null, 2)
+    JSON.stringify(
+        semantic.errors,
+        null,
+        2
+    )
 );
 
 console.log("\nSymbol Table:");
-
 console.log(
-    JSON.stringify(semantic.symbolTable, null, 2)
+    JSON.stringify(
+        semantic.symbolTable,
+        null,
+        2
+    )
 );

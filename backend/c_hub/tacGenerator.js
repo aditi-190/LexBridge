@@ -1,6 +1,8 @@
 class TACGenerator {
 
-    constructor() {
+    constructor(ast) {
+
+        this.ast = ast;
 
         this.code = [];
 
@@ -10,6 +12,24 @@ class TACGenerator {
 
     }
 
+
+    // ==========================================
+    // GENERATE
+    // ==========================================
+
+    generate() {
+
+        this.visit(this.ast);
+
+        return this.code;
+
+    }
+
+
+    // ==========================================
+    // TEMP
+    // ==========================================
+
     newTemp() {
 
         this.tempCount++;
@@ -17,6 +37,11 @@ class TACGenerator {
         return `t${this.tempCount}`;
 
     }
+
+
+    // ==========================================
+    // LABEL
+    // ==========================================
 
     newLabel() {
 
@@ -26,133 +51,359 @@ class TACGenerator {
 
     }
 
+
+    // ==========================================
+    // EMIT
+    // ==========================================
+
     emit(instruction) {
 
         this.code.push(instruction);
 
     }
 
-    generate(ast) {
 
-        this.visit(ast);
-
-        return {
-
-            code: this.code
-
-        };
-
-    }
+    // ==========================================
+    // VISIT
+    // ==========================================
 
     visit(node) {
 
         if (!node) return;
 
+
         switch (node.type) {
+
+
+            // ==================================
+            // PROGRAM
+            // ==================================
 
             case "Program":
 
-                node.body.forEach(
-                    child => this.visit(child)
+                if (Array.isArray(node.body)) {
+
+                    node.body.forEach(
+                        child => this.visit(child)
+                    );
+
+                }
+
+                break;
+
+
+            // ==================================
+            // FUNCTION DECLARATION
+            // ==================================
+
+            case "FunctionDeclaration": {
+
+                const functionName =
+                    node.name ||
+                    node.identifier ||
+                    "anonymous";
+
+
+                this.emit(
+                    `FUNCTION ${functionName}`
+                );
+
+
+                if (Array.isArray(node.params)) {
+
+                    node.params.forEach(param => {
+
+                        const paramName =
+                            param.name ||
+                            param.identifier;
+
+
+                        this.emit(
+                            `PARAM ${paramName}`
+                        );
+
+                    });
+
+                }
+
+
+                if (node.body) {
+
+                    this.visit(node.body);
+
+                }
+
+
+                this.emit(
+                    `END FUNCTION ${functionName}`
                 );
 
                 break;
 
-            case "MainFunction":
+            }
 
-                this.visit(node.body);
+
+            // ==================================
+            // MAIN FUNCTION
+            // ==================================
+
+            case "MainFunction": {
+
+                const functionName =
+                    node.name || "main";
+
+
+                this.emit(
+                    `FUNCTION ${functionName}`
+                );
+
+
+                if (node.body) {
+
+                    this.visit(node.body);
+
+                }
+
+
+                this.emit(
+                    `END FUNCTION ${functionName}`
+                );
 
                 break;
+
+            }
+
+
+            // ==================================
+            // BLOCK
+            // ==================================
 
             case "Block":
 
-                node.body.forEach(
-                    statement => this.visit(statement)
+                if (Array.isArray(node.body)) {
+
+                    node.body.forEach(
+                        statement =>
+                            this.visit(statement)
+                    );
+
+                }
+
+                break;
+
+
+            // ==================================
+            // VARIABLE DECLARATION
+            // ==================================
+
+            case "VariableDeclaration": {
+
+                if (node.value) {
+
+                    const value =
+                        this.visitExpression(
+                            node.value
+                        );
+
+
+                    this.emit(
+                        `${node.identifier} = ${value}`
+                    );
+
+                }
+
+                break;
+
+            }
+
+
+            // ==================================
+            // ASSIGNMENT
+            // ==================================
+
+            case "Assignment": {
+
+                const value =
+                    this.visitExpression(
+                        node.value
+                    );
+
+
+                this.emit(
+                    `${node.identifier} = ${value}`
                 );
 
                 break;
 
-            case "VariableDeclaration":
+            }
+
+
+            // ==================================
+            // PRINT
+            // ==================================
+
+            case "PrintStatement": {
+
+                const value =
+                    this.visitExpression(
+                        node.value
+                    );
+
+
+                this.emit(
+                    `PRINT ${value}`
+                );
+
+                break;
+
+            }
+
+
+            // ==================================
+            // RETURN
+            // ==================================
+
+            case "ReturnStatement": {
 
                 if (node.value) {
 
-                    const value = this.generateExpression(
-                        node.value
-                    );
+                    const value =
+                        this.visitExpression(
+                            node.value
+                        );
+
 
                     this.emit(
-                        `${node.identifier} = ${value}`
+                        `RETURN ${value}`
+                    );
+
+                } else {
+
+                    this.emit(
+                        `RETURN`
                     );
 
                 }
 
                 break;
 
-            case "Assignment":
+            }
 
-                {
 
-                    const value = this.generateExpression(
-                        node.value
+            // ==================================
+            // IF
+            // ==================================
+
+            case "IfStatement": {
+
+                const condition =
+                    this.visitExpression(
+                        node.condition
                     );
 
-                    this.emit(
-                        `${node.identifier} = ${value}`
+
+                const elseLabel =
+                    this.newLabel();
+
+                const endLabel =
+                    this.newLabel();
+
+
+                this.emit(
+                    `IF_FALSE ${condition} GOTO ${elseLabel}`
+                );
+
+
+                this.visit(
+                    node.thenBranch
+                );
+
+
+                this.emit(
+                    `GOTO ${endLabel}`
+                );
+
+
+                this.emit(
+                    `${elseLabel}:`
+                );
+
+
+                if (node.elseBranch) {
+
+                    this.visit(
+                        node.elseBranch
                     );
 
                 }
 
+
+                this.emit(
+                    `${endLabel}:`
+                );
+
                 break;
 
-            case "PrintStatement":
+            }
 
-                {
 
-                    const value = this.generateExpression(
-                        node.value
+            // ==================================
+            // WHILE
+            // ==================================
+
+            case "WhileStatement": {
+
+                const startLabel =
+                    this.newLabel();
+
+                const endLabel =
+                    this.newLabel();
+
+
+                this.emit(
+                    `${startLabel}:`
+                );
+
+
+                const condition =
+                    this.visitExpression(
+                        node.condition
                     );
 
-                    this.emit(
-                        `print ${value}`
-                    );
 
-                }
+                this.emit(
+                    `IF_FALSE ${condition} GOTO ${endLabel}`
+                );
 
-                break;
 
-            case "ReturnStatement":
+                this.visit(
+                    node.body
+                );
 
-                {
 
-                    const value = this.generateExpression(
-                        node.value
-                    );
+                this.emit(
+                    `GOTO ${startLabel}`
+                );
 
-                    this.emit(
-                        `return ${value}`
-                    );
 
-                }
+                this.emit(
+                    `${endLabel}:`
+                );
 
                 break;
 
-            case "IfStatement":
-
-                this.generateIf(node);
-
-                break;
-
-            case "WhileStatement":
-
-                this.generateWhile(node);
-
-                break;
+            }
 
         }
 
     }
 
-    generateExpression(node) {
+
+    // ==========================================
+    // EXPRESSION
+    // ==========================================
+
+    visitExpression(node) {
 
         if (!node) {
 
@@ -160,133 +411,190 @@ class TACGenerator {
 
         }
 
-        if (node.type === "Literal") {
 
-            return String(node.value);
+        switch (node.type) {
+
+
+            // ==================================
+            // LITERAL
+            // ==================================
+
+            case "Literal":
+
+                /*
+                 * String literals are quoted so that
+                 * TAC clearly shows them as strings.
+                 */
+
+                if (
+                    typeof node.value === "string"
+                ) {
+
+                    return `"${node.value}"`;
+
+                }
+
+
+                return String(node.value);
+
+
+            // ==================================
+            // IDENTIFIER
+            // ==================================
+
+            case "Identifier":
+
+                return node.name;
+
+
+            // ==================================
+            // BINARY EXPRESSION
+            // ==================================
+
+            case "BinaryExpression": {
+
+                const left =
+                    this.visitExpression(
+                        node.left
+                    );
+
+
+                const right =
+                    this.visitExpression(
+                        node.right
+                    );
+
+
+                const temp =
+                    this.newTemp();
+
+
+                this.emit(
+                    `${temp} = ${left} ${node.operator} ${right}`
+                );
+
+
+                return temp;
+
+            }
+
+            case "UnaryExpression": {
+
+                const operand =
+                    this.visitExpression(
+                        node.operand
+                    );
+
+
+                const temp =
+                    this.newTemp();
+
+
+                this.emit(
+                    `${temp} = ${node.operator}${operand}`
+                );
+
+
+                return temp;
+
+            }
+
+
+            case "CallExpression": {
+
+                const functionName =
+                    node.name ||
+                    (
+                        node.callee &&
+                        (
+                            node.callee.name ||
+                            node.callee.identifier
+                        )
+                    );
+
+
+                const args =
+                    Array.isArray(node.arguments)
+                        ? node.arguments
+                        : [];
+
+
+                /*
+                 * Evaluate arguments first.
+                 */
+
+                const argumentValues =
+                    args.map(
+                        argument =>
+                            this.visitExpression(
+                                argument
+                            )
+                    );
+
+
+                /*
+                 * Emit parameters.
+                 */
+
+                argumentValues.forEach(
+                    value => {
+
+                        this.emit(
+                            `PARAM ${value}`
+                        );
+
+                    }
+                );
+
+
+        
+
+                const temp =
+                    this.newTemp();
+
+
+                if (argumentValues.length > 0) {
+
+                    this.emit(
+                        `${temp} = CALL ${functionName}, ${argumentValues.length}`
+                    );
+
+                } else {
+
+                    this.emit(
+                        `${temp} = CALL ${functionName}, 0`
+                    );
+
+                }
+
+
+                return temp;
+
+            }
+
+
+            default:
+
+                return "";
 
         }
-
-        if (node.type === "Identifier") {
-
-            return node.name;
-
-        }
-
-        if (node.type === "UnaryExpression") {
-
-            const operand = this.generateExpression(
-                node.operand
-            );
-
-            const temp = this.newTemp();
-
-            this.emit(
-                `${temp} = ${node.operator}${operand}`
-            );
-
-            return temp;
-
-        }
-
-        if (node.type === "BinaryExpression") {
-
-            const left = this.generateExpression(
-                node.left
-            );
-
-            const right = this.generateExpression(
-                node.right
-            );
-
-            const temp = this.newTemp();
-
-            this.emit(
-                `${temp} = ${left} ${node.operator} ${right}`
-            );
-
-            return temp;
-
-        }
-
-        return "";
-
-    }
-
-    generateIf(node) {
-
-        const elseLabel = this.newLabel();
-
-        const endLabel = this.newLabel();
-
-        const condition = this.generateExpression(
-            node.condition
-        );
-
-        this.emit(
-            `ifFalse ${condition} goto ${elseLabel}`
-        );
-
-        this.visit(node.thenBranch);
-
-        this.emit(
-            `goto ${endLabel}`
-        );
-
-        this.emit(
-            `${elseLabel}:`
-        );
-
-        if (node.elseBranch) {
-
-            this.visit(node.elseBranch);
-
-        }
-
-        this.emit(
-            `${endLabel}:`
-        );
-
-    }
-
-    generateWhile(node) {
-
-        const startLabel = this.newLabel();
-
-        const endLabel = this.newLabel();
-
-        this.emit(
-            `${startLabel}:`
-        );
-
-        const condition = this.generateExpression(
-            node.condition
-        );
-
-        this.emit(
-            `ifFalse ${condition} goto ${endLabel}`
-        );
-
-        this.visit(node.body);
-
-        this.emit(
-            `goto ${startLabel}`
-        );
-
-        this.emit(
-            `${endLabel}:`
-        );
 
     }
 
 }
+
 
 function generateTAC(ast) {
 
-    const generator = new TACGenerator();
+    const generator =
+        new TACGenerator(ast);
 
-    return generator.generate(ast);
+    return {
+        code: generator.generate()
+    };
 
 }
+
 
 module.exports = {
 

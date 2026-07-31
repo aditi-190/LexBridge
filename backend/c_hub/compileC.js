@@ -1,16 +1,19 @@
+const { executeProgram } = require("./programExecutor");
+
 const { tokenizeC } = require("./lexer");
 const { parseC } = require("./parser");
+
 const { buildSymbolTable } = require("./symbolTable");
+
 const { analyzeSemantic } = require("./semanticAnalyzer");
+
 const { generateTAC } = require("./tacGenerator");
+
 
 function compileC(sourceCode) {
 
-    // =========================
-    // 1. Lexical Analysis
-    // =========================
-
     const lexical = tokenizeC(sourceCode);
+
 
     if (lexical.errors.length > 0) {
 
@@ -26,13 +29,10 @@ function compileC(sourceCode) {
 
     }
 
+    const syntax = parseC(
+        lexical.tokens
+    );
 
-    // =========================
-    // 2. Syntax Analysis
-    // 3. AST Construction
-    // =========================
-
-    const syntax = parseC(lexical.tokens);
 
     if (syntax.errors.length > 0) {
 
@@ -42,22 +42,60 @@ function compileC(sourceCode) {
 
             phase: "Syntax Analysis",
 
-            errors: syntax.errors
+            errors: syntax.errors,
+
+            tokens: lexical.tokens
 
         };
 
     }
 
+
     const ast = syntax.ast;
 
+    const mainFunction =
+        ast &&
+        Array.isArray(ast.body)
+            ? ast.body.find(
+                node =>
+                    node &&
+                    node.type === "MainFunction"
+            )
+            : null;
 
-    // =========================
-    // 4. Symbol Table
-    // =========================
 
-    const symbolResult = buildSymbolTable(ast);
+    if (!mainFunction) {
 
-    if (symbolResult.errors.length > 0) {
+        return {
+
+            success: false,
+
+            phase: "Syntax Analysis",
+
+            errors: [
+                {
+                    message: "main function not found",
+                    line: 0,
+                    column: 0
+                }
+            ],
+
+            tokens: lexical.tokens,
+
+            ast
+
+        };
+
+    }
+
+    const symbolResult =
+        buildSymbolTable(ast);
+
+
+    if (
+        symbolResult.errors &&
+        symbolResult.errors.length > 0
+    ) {
 
         return {
 
@@ -65,23 +103,29 @@ function compileC(sourceCode) {
 
             phase: "Symbol Table",
 
-            errors: symbolResult.errors,
+            errors:
+                symbolResult.errors,
 
-            ast: ast,
+            tokens: lexical.tokens,
 
-            symbolTable: symbolResult.symbolTable
+            ast,
+
+            symbolTable:
+                symbolResult.symbolTable
 
         };
 
     }
 
 
-    // 5. Semantic Analysis
- 
+    const semantic =
+        analyzeSemantic(ast);
 
-    const semantic = analyzeSemantic(ast);
 
-    if (semantic.errors.length > 0) {
+    if (
+        semantic.errors &&
+        semantic.errors.length > 0
+    ) {
 
         return {
 
@@ -89,23 +133,99 @@ function compileC(sourceCode) {
 
             phase: "Semantic Analysis",
 
-            errors: semantic.errors,
+            errors:
+                semantic.errors,
 
-            ast: ast,
+            tokens: lexical.tokens,
 
-            symbolTable: symbolResult.symbolTable
+            ast,
+
+            symbolTable:
+                symbolResult.symbolTable
+
+        };
+
+    }
+    const tacResult =
+        generateTAC(ast);
+
+    const tac =
+        tacResult &&
+        Array.isArray(tacResult.code)
+            ? tacResult.code
+            : [];
+
+
+    // Debug TAC
+
+    console.log(
+        "\n===== GENERATED TAC ====="
+    );
+
+    console.log(
+        tac.join("\n")
+    );
+
+    const execution =
+        executeProgram(ast);
+    if (!execution) {
+
+        return {
+
+            success: false,
+
+            phase: "Program Execution",
+
+            tokens: lexical.tokens,
+
+            ast,
+
+            symbolTable:
+                symbolResult.symbolTable,
+
+            semanticErrors:
+                semantic.errors,
+
+            tac,
+
+            error:
+                "Program execution returned no result."
 
         };
 
     }
 
-    // 6. Intermediate Code Generation
-   
 
-    const tac = generateTAC(ast);
+    if (!execution.success) {
 
-    // Final Result
-  
+        return {
+
+            success: false,
+
+            phase: "Program Execution",
+
+            tokens: lexical.tokens,
+
+            ast,
+
+            symbolTable:
+                symbolResult.symbolTable,
+
+            semanticErrors:
+                semantic.errors,
+
+            tac,
+
+            error:
+                execution.error ||
+                "Program execution failed.",
+
+            output:
+                execution.output || ""
+
+        };
+
+    }
 
     return {
 
@@ -113,15 +233,21 @@ function compileC(sourceCode) {
 
         phase: "Compilation Successful",
 
-        tokens: lexical.tokens,
+        tokens:
+            lexical.tokens,
 
-        ast: ast,
+        ast,
 
-        symbolTable: symbolResult.symbolTable,
+        symbolTable:
+            symbolResult.symbolTable,
 
-        semanticErrors: semantic.errors,
+        semanticErrors:
+            semantic.errors,
 
-        tac: tac.code
+        tac,
+
+        output:
+            execution.output || ""
 
     };
 
@@ -129,6 +255,9 @@ function compileC(sourceCode) {
 
 module.exports = {
 
-    compileC
+    compileC,
+
+    // Compatible with controller/service
+    runCompiler: compileC
 
 };
