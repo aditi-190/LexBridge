@@ -1,6 +1,11 @@
 const lexer = require("./lexer");
 const AST = require("./ast");
 
+// Modifiers that Java allows before a class/field/method but that this
+// subset compiler does not need to enforce semantically. We consume and
+// discard them.
+const MODIFIER_KEYWORDS = ["public", "private", "protected", "static", "final"];
+
 class Parser {
     constructor(code) {
         this.tokens = lexer(code);
@@ -41,10 +46,91 @@ class Parser {
         return token;
     }
 
+    // ------------------------------------------------------------------
+    // Java boilerplate helpers: "public class Test { public static void
+    // main(String[] args) { ... } }"
+    // ------------------------------------------------------------------
+
+    /**
+     * Consumes any run of modifier keywords (public/private/protected/
+     * static/final) at the current position without producing AST nodes.
+     */
+    skipModifiers() {
+        while (
+            this.match("KEYWORD") &&
+            MODIFIER_KEYWORDS.includes(this.currentToken().value)
+        ) {
+            this.next();
+        }
+    }
+
+    /**
+     * Lookahead (non-consuming): does the token stream, after skipping any
+     * modifiers, start a "class" declaration at the current position?
+     */
+    isClassStart() {
+        let idx = this.current;
+        while (
+            this.tokens[idx] &&
+            this.tokens[idx].type === "KEYWORD" &&
+            MODIFIER_KEYWORDS.includes(this.tokens[idx].value)
+        ) {
+            idx++;
+        }
+        return (
+            this.tokens[idx] &&
+            this.tokens[idx].type === "KEYWORD" &&
+            this.tokens[idx].value === "class"
+        );
+    }
+
+    /**
+     * Parses:  [modifiers] class ID { member* }
+     * Returns a FLAT ARRAY of statements/declarations meant to be spliced
+     * straight into the enclosing Program body. Specifically:
+     *   - a method named "main" has its body statements unwrapped directly
+     *     into the returned array (so `main`'s code executes as if it were
+     *     top-level code — this is what lets your subset interpreter run
+     *     standard Java entry points without any special-casing downstream).
+     *   - any other method becomes a normal FunctionDeclaration node.
+     *   - fields become normal VariableDeclaration nodes.
+     */
+    parseClassDeclaration() {
+        this.skipModifiers();
+        this.expect("KEYWORD", "class");
+        this.expect("IDENTIFIER"); // class name — not needed by this subset compiler
+        this.expect("LBRACE");
+
+        const collected = [];
+
+        while (!this.match("RBRACE") && !this.match("EOF")) {
+            this.skipModifiers();
+
+            const member = this.parseVariableOrFunctionDeclaration();
+
+            if (member.type === "FunctionDeclaration" && member.name === "main") {
+                // Unwrap main(...)'s body directly into the program.
+                collected.push(...member.body.statements);
+            } else {
+                collected.push(member);
+            }
+        }
+
+        this.expect("RBRACE");
+        return collected;
+    }
+
+    // ------------------------------------------------------------------
+
     parseProgram() {
         const body = [];
         while (!this.match("EOF")) {
-            body.push(this.parseStatement());
+            if (this.isClassStart()) {
+                const classStatements = this.parseClassDeclaration();
+                body.push(...classStatements);
+            } else {
+                body.push(this.parseStatement());
+            }
         }
         return AST.ProgramNode(body);
     }
@@ -61,6 +147,7 @@ class Parser {
                 case "int":
                 case "float":
                 case "string":
+                case "String":
                 case "bool":
                 case "boolean":
                 case "void":
@@ -100,6 +187,15 @@ class Parser {
 
             while (!this.match("RPAREN")) {
                 const paramType = this.expect("KEYWORD").value;
+
+                // Support Java-style array parameter types, e.g. String[] args.
+                // We don't model arrays downstream, so we just consume the
+                // brackets and keep the base type.
+                if (this.match("LBRACKET")) {
+                    this.next();
+                    this.expect("RBRACKET");
+                }
+
                 const paramName = this.expect("IDENTIFIER").value;
                 params.push({ dataType: paramType, identifier: paramName });
 

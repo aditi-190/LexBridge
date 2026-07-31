@@ -1,4 +1,3 @@
-
 class Optimizer {
     constructor(instructions) {
         this.instructions = instructions;
@@ -6,9 +5,8 @@ class Optimizer {
 
     optimize() {
         let optimized = [...this.instructions];
-        
+
         optimized = this.constantFolding(optimized);
-        
         optimized = this.copyPropagationAndDeadCode(optimized);
 
         return optimized;
@@ -22,7 +20,7 @@ class Optimizer {
                 const num1 = Number(arg1);
                 const num2 = Number(arg2);
 
-                if (!isNaN(num1) && !isNaN(num2)) {
+                if (arg1 !== "" && arg2 !== "" && !isNaN(num1) && !isNaN(num2)) {
                     let resVal;
                     switch (op) {
                         case "+": resVal = num1 + num2; break;
@@ -41,24 +39,45 @@ class Optimizer {
         });
     }
 
-    copyPropagationAndDeadCode(instructions) {
+    /**
+     * Counts how many times each name appears as an operand (arg1/arg2)
+     * across the whole instruction list. Needed so copy-propagation only
+     * eliminates a temp when it's truly used in exactly one place —
+     * otherwise merging silently drops the other uses and corrupts output.
+     */
+    countUsages(instructions) {
+        const usage = {};
+        for (const inst of instructions) {
+            for (const operand of [inst.arg1, inst.arg2]) {
+                if (typeof operand === "string" && operand !== "") {
+                    usage[operand] = (usage[operand] || 0) + 1;
+                }
+            }
+        }
+        return usage;
+    }
 
+    copyPropagationAndDeadCode(instructions) {
+        const usage = this.countUsages(instructions);
         const newInsts = [];
-        
+
         for (let i = 0; i < instructions.length; i++) {
             const current = instructions[i];
             const next = instructions[i + 1];
+
+            const isTemp = current.result && current.result.startsWith("t");
+            // Safe to fold current's result straight into "next" ONLY if
+            // that temp isn't referenced anywhere else in the program.
+            const usedExactlyOnce = isTemp && usage[current.result] === 1;
+
             if (
-                next && 
-                next.op === "=" && 
-                next.arg1 === current.result && 
-                current.result.startsWith("t")
+                next &&
+                next.op === "=" &&
+                next.arg1 === current.result &&
+                usedExactlyOnce
             ) {
-                newInsts.push({
-                    ...current,
-                    result: next.result
-                });
-                i++; 
+                newInsts.push({ ...current, result: next.result });
+                i++; // consume the merged "next" instruction
             } else {
                 newInsts.push(current);
             }
