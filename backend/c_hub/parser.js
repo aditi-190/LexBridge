@@ -40,19 +40,21 @@ class Parser {
 
     }
 
-    check(type, value = null) {
+   check(type, value = null) {
 
-        if (this.isAtEnd()) return false;
+    const token = this.peek();
 
-        const token = this.peek();
+    if (!token) return false;
 
-        if (token.type !== type) return false;
+    if (token.type !== type) return false;
 
-        if (value !== null && token.value !== value) return false;
-
-        return true;
-
+    if (value !== null && token.value !== value) {
+        return false;
     }
+
+    return true;
+
+}
 
     match(type, value = null) {
 
@@ -102,92 +104,131 @@ class Parser {
     }
         parseProgram() {
 
-        const body = [];
+    const body = [];
 
-        while (!this.isAtEnd()) {
+    while (!this.isAtEnd()) {
 
-            body.push(this.parseFunction());
-
-        }
-
-        return {
-
-            type: "Program",
-
-            body
-
-        };
+        body.push(this.parseFunction());
 
     }
+
+    return {
+
+        type: "Program",
+
+        body
+
+    };
+
+}
         parseFunction() {
 
-        this.consume(
-            TokenType.KEYWORD,
-            "int",
-            "Expected return type"
-        );
+    const returnType = this.consume(
+        TokenType.KEYWORD,
+        "int",
+        "Expected return type"
+    );
 
-        const name = this.advance();
+    const name = this.consume(
+        TokenType.IDENTIFIER,
+        null,
+        "Expected function name"
+    );
 
-        if (name.value !== "main") {
+    this.consume(
+        TokenType.LPAREN,
+        null,
+        "Expected '(' after function name"
+    );
 
-            this.errors.push({
+    const params = [];
 
-                message: "Expected main function",
+    if (!this.check(TokenType.RPAREN, null)) {
 
-                line: name.line,
+        do {
 
-                column: name.column
+            const dataType = this.consume(
+                TokenType.KEYWORD,
+                null,
+                "Expected parameter type"
+            );
+
+            const identifier = this.consume(
+                TokenType.IDENTIFIER,
+                null,
+                "Expected parameter name"
+            );
+
+            params.push({
+
+                type: "Parameter",
+
+                dataType: dataType
+                    ? dataType.value
+                    : "",
+
+                name: identifier
+                    ? identifier.value
+                    : ""
 
             });
 
-        }
-
-        this.consume(
-            TokenType.PUNCTUATION,
-            "(",
-            "Expected ("
+        } while (
+            this.match(
+                TokenType.COMMA,
+                null
+            )
         );
-
-        this.consume(
-            TokenType.PUNCTUATION,
-            ")",
-            "Expected )"
-        );
-
-        const body = this.parseBlock();
-
-        return {
-
-            type: "MainFunction",
-
-            name: "main",
-
-            body
-
-        };
 
     }
+
+    this.consume(
+        TokenType.RPAREN,
+        null,
+        "Expected ')'"
+    );
+
+    const body = this.parseBlock();
+
+    return {
+
+        type:
+            name && name.value === "main"
+                ? "MainFunction"
+                : "FunctionDeclaration",
+
+        name:
+            name
+                ? name.value
+                : "",
+
+        returnType:
+            returnType
+                ? returnType.value
+                : "int",
+
+        params,
+
+        body
+
+    };
+
+}
         parseBlock() {
 
         this.consume(
-
-            TokenType.PUNCTUATION,
-
-            "{",
-
-            "Expected {"
-
-        );
+    TokenType.LBRACE,
+    null,
+    "Expected '{'"
+   );
+        
 
         const statements = [];
 
-        while (
-
-            !this.check(TokenType.PUNCTUATION, "}") &&
-            !this.isAtEnd()
-
-        ) {
+   while (
+    !this.check(TokenType.RBRACE, null) &&
+    !this.isAtEnd()
+) {
 
             statements.push(
 
@@ -197,15 +238,11 @@ class Parser {
 
         }
 
-        this.consume(
-
-            TokenType.PUNCTUATION,
-
-            "}",
-
-            "Expected }"
-
-        );
+      this.consume(
+    TokenType.RBRACE,
+    null,
+    "Expected '}'"
+);
 
         return {
 
@@ -285,21 +322,20 @@ parseIf() {
     );
 
     // Consume "("
-    this.consume(
-        TokenType.PUNCTUATION,
-        "(",
-        "Expected '(' after 'if'"
-    );
-
+   this.consume(
+    TokenType.LPAREN,
+    null,
+    "Expected '(' after 'if'"
+);
     // Parse condition
     const condition = this.parseExpression();
 
     // Consume ")"
-    this.consume(
-        TokenType.PUNCTUATION,
-        ")",
-        "Expected ')' after condition"
-    );
+   this.consume(
+    TokenType.RPAREN,
+    null,
+    "Expected ')' after condition"
+);
 
     // Parse if body
     const thenBranch = this.parseBlock();
@@ -334,24 +370,20 @@ parseWhile() {
         "while",
         "Expected 'while'"
     );
+this.consume(
+    TokenType.LPAREN,
+    null,
+    "Expected '(' after 'while'"
+);
 
-    // Consume "("
-    this.consume(
-        TokenType.PUNCTUATION,
-        "(",
-        "Expected '(' after 'while'"
-    );
+const condition = this.parseExpression();
 
-    // Parse condition
-    const condition = this.parseExpression();
-
-    // Consume ")"
-    this.consume(
-        TokenType.PUNCTUATION,
-        ")",
-        "Expected ')' after condition"
-    );
-
+this.consume(
+    TokenType.RPAREN,
+    null,
+    "Expected ')' after condition"
+);
+   
     // Parse loop body
     const body = this.parseBlock();
 
@@ -380,10 +412,10 @@ parsePrint() {
 
     // Consume ";"
     this.consume(
-        TokenType.PUNCTUATION,
-        ";",
-        "Missing ';' after print"
-    );
+    TokenType.SEMICOLON,
+    null,
+    "Missing ';' after print"
+);
 
     return {
 
@@ -416,15 +448,11 @@ parseVariableDeclaration() {
 
     }
 
-    this.consume(
-
-        TokenType.PUNCTUATION,
-
-        ";",
-
-        "Missing ';'"
-
-    );
+   this.consume(
+    TokenType.SEMICOLON,
+    null,
+    "Missing ';'"
+);
 
     return {
 
@@ -444,25 +472,17 @@ parseAssignment() {
     const identifier = this.advance().value;
 
     this.consume(
-
         TokenType.OPERATOR,
-
         "=",
-
         "Expected '='"
-
     );
 
     const value = this.parseExpression();
 
     this.consume(
-
-        TokenType.PUNCTUATION,
-
-        ";",
-
+        TokenType.SEMICOLON,
+        null,
         "Missing ';'"
-
     );
 
     return {
@@ -699,8 +719,24 @@ parsePrimary() {
 
     const token = this.peek();
 
-    // Number
-    if (token.type === TokenType.NUMBER) {
+    if (
+        token.type === TokenType.INTEGER ||
+        token.type === TokenType.FLOAT
+    ) {
+
+        this.advance();
+
+        return {
+
+            type: "Literal",
+
+            value: Number(token.value)
+
+        };
+
+    }
+
+    if (token.type === TokenType.STRING) {
 
         this.advance();
 
@@ -713,8 +749,6 @@ parsePrimary() {
         };
 
     }
-
-    // Boolean true
     if (
         token.type === TokenType.KEYWORD &&
         token.value === "true"
@@ -732,7 +766,6 @@ parsePrimary() {
 
     }
 
-    // Boolean false
     if (
         token.type === TokenType.KEYWORD &&
         token.value === "false"
@@ -750,10 +783,52 @@ parsePrimary() {
 
     }
 
-    // Identifier
     if (token.type === TokenType.IDENTIFIER) {
 
         this.advance();
+
+        if (this.match(TokenType.LPAREN, null)) {
+
+            const args = [];
+
+
+            // No arguments
+            if (!this.check(TokenType.RPAREN, null)) {
+
+                do {
+
+                    args.push(
+                        this.parseExpression()
+                    );
+
+                } while (
+                    this.match(
+                        TokenType.COMMA,
+                        null
+                    )
+                );
+
+            }
+
+
+            this.consume(
+                TokenType.RPAREN,
+                null,
+                "Expected ')' after arguments"
+            );
+
+
+            return {
+
+                type: "CallExpression",
+
+                name: token.value,
+
+                arguments: args
+
+            };
+
+        }
 
         return {
 
@@ -765,14 +840,14 @@ parsePrimary() {
 
     }
 
-    // Parenthesized expression
-    if (this.match(TokenType.PUNCTUATION, "(")) {
+    if (this.match(TokenType.LPAREN, null)) {
 
-        const expression = this.parseExpression();
+        const expression =
+            this.parseExpression();
 
         this.consume(
-            TokenType.PUNCTUATION,
-            ")",
+            TokenType.RPAREN,
+            null,
             "Expected ')'"
         );
 
@@ -795,22 +870,17 @@ parsePrimary() {
     return null;
 
 }
-    
 parseReturn() {
 
     this.advance();
 
     const value = this.parseExpression();
 
-    this.consume(
-
-        TokenType.PUNCTUATION,
-
-        ";",
-
-        "Missing ';'"
-
-    );
+   this.consume(
+    TokenType.SEMICOLON,
+    null,
+    "Missing ';'"
+);
 
     return {
 

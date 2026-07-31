@@ -2,42 +2,51 @@ const { tokenizeC } = require("./lexer");
 const { parseC } = require("./parser");
 
 const code = `
+int add(int a, int b) {
+
+    return a + b;
+
+}
+
 int main() {
 
-    int x;
+    int result;
 
-    x = 10;
+    result = add(10, 20);
 
-    if (x > 5 && x != 7) {
-
-        print x;
-
-    } else {
-
-        print 0;
-
-    }
+    print "Result:";
+    print result;
 
     return 0;
 }
 `;
+const lexical = tokenizeC(code);
 
 console.log("===== LEXER TEST =====");
 
-const lexical = tokenizeC(code);
-
 console.log("Lexer Errors:");
-console.log(lexical.errors);
 
-console.log("\n===== PARSER TEST =====");
+console.log(
+    JSON.stringify(lexical.errors, null, 2)
+);
 
 const syntax = parseC(lexical.tokens);
 
+console.log("\n===== PARSER TEST =====");
+
 console.log("Parser Errors:");
-console.log(syntax.errors);
+
+console.log(
+    JSON.stringify(syntax.errors, null, 2)
+);
+
 
 console.log("\n===== AST =====");
 
 console.log(
-    JSON.stringify(syntax.ast, null, 2)
+    JSON.stringify(
+        syntax.ast,
+        null,
+        2
+    )
 );

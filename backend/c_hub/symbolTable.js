@@ -1,26 +1,40 @@
 class SymbolTable {
-constructor() {
 
-    this.scopes = [];
+    constructor() {
 
-    this.allScopes = [];
+        this.scopes = [];
 
-    this.enterScope();
+        this.allScopes = [];
 
-}
+        // Create global scope
+        this.enterScope();
+
+    }
+
+
+    // ==========================================
+    // ENTER SCOPE
+    // ==========================================
 
     enterScope() {
 
-    const scope = {};
 
-    this.scopes.push(scope);
+        const scope = {};
 
-    this.allScopes.push(scope);
+        this.scopes.push(scope);
 
-}
+        this.allScopes.push(scope);
+
+    }
+
+
+    // ==========================================
+    // EXIT SCOPE
+    // ==========================================
 
     exitScope() {
 
+        // Keep global scope alive
         if (this.scopes.length > 1) {
 
             this.scopes.pop();
@@ -29,27 +43,57 @@ constructor() {
 
     }
 
+
+    // ==========================================
+    // CURRENT SCOPE
+    // ==========================================
+
     currentScope() {
 
-        return this.scopes[this.scopes.length - 1];
+        return this.scopes[
+            this.scopes.length - 1
+        ];
 
     }
 
-    declare(name, type, line) {
 
-        const scope = this.currentScope();
+    // ==========================================
+    // DECLARE SYMBOL
+    // ==========================================
 
+    declare(
+        name,
+        type,
+        line,
+        kind = "variable"
+    ) {
+
+        const scope =
+            this.currentScope();
+
+
+        // Redeclaration check
         if (scope[name]) {
+
+            const symbolType =
+                kind === "function"
+                    ? "Function"
+                    : kind === "parameter"
+                        ? "Parameter"
+                        : "Variable";
+
 
             return {
 
                 success: false,
 
-                error: `Variable '${name}' already declared`
+                error:
+                    `${symbolType} '${name}' already declared`
 
             };
 
         }
+
 
         scope[name] = {
 
@@ -57,11 +101,14 @@ constructor() {
 
             type,
 
-            scope: this.scopes.length - 1,
+            kind,
+
+            scope: this.allScopes.indexOf(scope),
 
             lineDeclared: line
 
         };
+
 
         return {
 
@@ -76,8 +123,11 @@ constructor() {
     lookup(name) {
 
         for (
-            let i = this.scopes.length - 1;
+            let i =
+                this.scopes.length - 1;
+
             i >= 0;
+
             i--
         ) {
 
@@ -93,6 +143,8 @@ constructor() {
 
     }
 
+
+   
     existsInCurrentScope(name) {
 
         return Boolean(
@@ -101,72 +153,305 @@ constructor() {
 
     }
 
-   getAllSymbols() {
 
-    const result = {};
+    getAllSymbols() {
 
-    this.allScopes.forEach((scope, index) => {
+        const result = {};
 
-        result[`scope_${index}`] = scope;
 
-    });
+        this.allScopes.forEach(
+            (scope, index) => {
 
-    return result;
+                result[`scope_${index}`] =
+                    scope;
+
+            }
+        );
+
+
+        return result;
+
+    }
 
 }
 
-}
+
 
 function buildSymbolTable(ast) {
 
-    const table = new SymbolTable();
+    const table =
+        new SymbolTable();
 
     const errors = [];
 
+    function addError(
+        message,
+        line = 0
+    ) {
+
+        errors.push({
+
+            message,
+
+            line
+
+        });
+
+    }
+
     function visit(node) {
 
-        if (!node) return;
+        if (!node) {
+
+            return;
+
+        }
+
 
         switch (node.type) {
 
+
+            
+
             case "Program":
 
-                node.body.forEach(visit);
+                node.body.forEach(
+                    visit
+                );
 
                 break;
 
-            case "MainFunction":
 
-                visit(node.body);
 
-                break;
 
-            case "Block":
+            case "FunctionDeclaration": {
+
+                // Register function globally
+
+                const result =
+                    table.declare(
+                        node.name,
+                        node.returnType || "int",
+                        node.line || 0,
+                        "function"
+                    );
+
+
+                if (!result.success) {
+
+                    addError(
+                        result.error,
+                        node.line || 0
+                    );
+
+                    break;
+
+                }
+
+
+                // Function scope
 
                 table.enterScope();
 
-                node.body.forEach(visit);
+
+                // Parameters
+
+                if (
+                    Array.isArray(
+                        node.params
+                    )
+                ) {
+
+                    node.params.forEach(
+                        param => {
+
+                            const parameterResult =
+                                table.declare(
+                                    param.name,
+                                    param.dataType,
+                                    param.line || 0,
+                                    "parameter"
+                                );
+
+
+                            if (
+                                !parameterResult.success
+                            ) {
+
+                                addError(
+                                    parameterResult.error,
+                                    param.line || 0
+                                );
+
+                            }
+
+                        }
+                    );
+
+                }
+
+
+                // Function body
+
+                if (
+                    node.body &&
+                    Array.isArray(
+                        node.body.body
+                    )
+                ) {
+
+                    node.body.body.forEach(
+                        visit
+                    );
+
+                }
+
 
                 table.exitScope();
 
                 break;
 
+            }
+
+
+            // ==================================
+            // MAIN FUNCTION
+            // ==================================
+
+            case "MainFunction": {
+
+                // Register main globally
+
+                const mainResult =
+                    table.declare(
+                        node.name,
+                        node.returnType || "int",
+                        node.line || 0,
+                        "function"
+                    );
+
+
+                if (!mainResult.success) {
+
+                    addError(
+                        mainResult.error,
+                        node.line || 0
+                    );
+
+                    break;
+
+                }
+
+
+                // Main scope
+
+                table.enterScope();
+
+
+                // Main parameters
+                if (
+                    Array.isArray(
+                        node.params
+                    )
+                ) {
+
+                    node.params.forEach(
+                        param => {
+
+                            const parameterResult =
+                                table.declare(
+                                    param.name,
+                                    param.dataType,
+                                    param.line || 0,
+                                    "parameter"
+                                );
+
+
+                            if (
+                                !parameterResult.success
+                            ) {
+
+                                addError(
+                                    parameterResult.error,
+                                    param.line || 0
+                                );
+
+                            }
+
+                        }
+                    );
+
+                }
+
+
+                // Main body
+
+                if (
+                    node.body &&
+                    Array.isArray(
+                        node.body.body
+                    )
+                ) {
+
+                    node.body.body.forEach(
+                        visit
+                    );
+
+                }
+
+
+                table.exitScope();
+
+                break;
+
+            }
+
+
+            // ==================================
+            // BLOCK
+            // ==================================
+
+            case "Block": {
+
+                table.enterScope();
+
+
+                node.body.forEach(
+                    visit
+                );
+
+
+                table.exitScope();
+
+                break;
+
+            }
+
+
+            // ==================================
+            // VARIABLE DECLARATION
+            // ==================================
+
             case "VariableDeclaration": {
 
-                const result = table.declare(
-                    node.identifier,
-                    node.dataType,
-                    node.line || 0
-                );
+                const result =
+                    table.declare(
+                        node.identifier,
+                        node.dataType,
+                        node.line || 0,
+                        "variable"
+                    );
+
 
                 if (!result.success) {
 
-                    errors.push({
-                        message: result.error,
-                        line: node.line || 0
-                    });
+                    addError(
+                        result.error,
+                        node.line || 0
+                    );
 
                 }
+
 
                 if (node.value) {
 
@@ -175,27 +460,28 @@ function buildSymbolTable(ast) {
                 }
 
                 break;
+
             }
+
+
+            // ==================================
+            // ASSIGNMENT
+            // ==================================
 
             case "Assignment":
 
-                visit(node.value);
+                if (node.value) {
+
+                    visit(node.value);
+
+                }
 
                 break;
 
-            case "BinaryExpression":
 
-                visit(node.left);
-
-                visit(node.right);
-
-                break;
-
-            case "UnaryExpression":
-
-                visit(node.operand);
-
-                break;
+            // ==================================
+            // IF STATEMENT
+            // ==================================
 
             case "IfStatement":
 
@@ -211,6 +497,11 @@ function buildSymbolTable(ast) {
 
                 break;
 
+
+            // ==================================
+            // WHILE STATEMENT
+            // ==================================
+
             case "WhileStatement":
 
                 visit(node.condition);
@@ -219,11 +510,21 @@ function buildSymbolTable(ast) {
 
                 break;
 
+
+            // ==================================
+            // PRINT
+            // ==================================
+
             case "PrintStatement":
 
                 visit(node.value);
 
                 break;
+
+
+            // ==================================
+            // RETURN
+            // ==================================
 
             case "ReturnStatement":
 
@@ -231,9 +532,76 @@ function buildSymbolTable(ast) {
 
                 break;
 
-            case "Identifier":
+
+            // ==================================
+            // BINARY EXPRESSION
+            // ==================================
+
+            case "BinaryExpression":
+
+                visit(node.left);
+
+                visit(node.right);
 
                 break;
+
+
+            // ==================================
+            // UNARY EXPRESSION
+            // ==================================
+
+            case "UnaryExpression":
+
+                visit(node.operand);
+
+                break;
+
+
+            // ==================================
+            // FUNCTION CALL
+            // ==================================
+
+            case "CallExpression":
+
+                /*
+                 * Function declaration checking
+                 * will be handled by semantic analysis.
+                 *
+                 * Here we visit every argument.
+                 */
+
+                if (
+                    Array.isArray(
+                        node.arguments
+                    )
+                ) {
+
+                    node.arguments.forEach(
+                        visit
+                    );
+
+                }
+
+                break;
+
+
+            // ==================================
+            // IDENTIFIER
+            // ==================================
+
+            case "Identifier":
+
+                /*
+                 * Lookup is handled by
+                 * semantic analysis.
+                 */
+
+                break;
+
+
+            // ==================================
+            // LITERAL
+            // ==================================
 
             case "Literal":
 
@@ -243,17 +611,34 @@ function buildSymbolTable(ast) {
 
     }
 
+
+    // ======================================
+    // START BUILD
+    // ======================================
+
     visit(ast);
+
+
+    // ======================================
+    // RETURN RESULT
+    // ======================================
 
     return {
 
-        symbolTable: table.getAllSymbols(),
+        symbolTable:
+            table.getAllSymbols(),
 
         errors
 
     };
 
 }
+
+
+
+// ==========================================
+// EXPORT
+// ==========================================
 
 module.exports = {
 
