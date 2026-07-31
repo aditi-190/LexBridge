@@ -8,7 +8,9 @@ const connectDB = require("./config/db");
 
 const javaRoutes = require("./routes/javaRoutes");
 const cRoutes = require("./routes/cRoutes");
+const cppRoutes = require("./routes/cppRoutes");
 const historyRoutes = require("./routes/historyRoutes");
+
 
 require("dotenv").config();
 
@@ -32,6 +34,7 @@ connectDB();
 
 app.use("/api/java", javaRoutes);
 app.use("/api/c", cRoutes);
+app.use("/api/cpp", cppRoutes);
 app.use("/api/history", historyRoutes);
 
 app.get("/", (req, res) => {
