@@ -1,4 +1,3 @@
-
 const runBtn = document.getElementById("runBtn");
 const codeInput = document.getElementById("code");
 const inputBox = document.getElementById("input");

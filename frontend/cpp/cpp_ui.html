@@ -10,109 +10,346 @@
 
     <link rel="stylesheet" href="cpp_style.css">
 
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
 
 </head>
 
 <body>
 
-    <!-- Navbar -->
+    <div class="app">
 
-    <div class="navbar">
+        <!-- TOP NAVBAR -->
 
-        <div class="logo">
+        <header class="navbar">
 
-            LexBridge
+            <div class="brand-section">
 
-        </div>
+                <div class="brand-icon">
 
-        <div class="language">
+                    L
 
-            C++ Compiler
+                </div>
 
-        </div>
+                <div class="brand-info">
 
-    </div>
+                    <div class="brand-name">
+
+                        LexBridge
+
+                    </div>
+
+                    <div class="brand-subtitle">
+
+                        Interactive Compiler Workspace
+
+                    </div>
+
+                </div>
+
+            </div>
 
 
-    <!-- Main Container -->
+            <div class="navbar-right">
 
-    <div class="container">
+                <div class="language-selector">
+
+                    <button
+                        id="languageBtn"
+                        class="language-btn"
+                        type="button">
+
+                        Language:
+                        <span id="currentLanguage">
+                            C++
+                        </span>
+
+                        <span class="arrow">
+                            ▼
+                        </span>
+
+                    </button>
+
+                    <div
+                        id="languageMenu"
+                        class="language-menu">
+
+                        <button
+                            class="language-option"
+                            data-language="c"
+                            type="button">
+
+                            C
+
+                        </button>
+
+                        <button
+                            class="language-option active"
+                            data-language="cpp"
+                            type="button">
+
+                            C++
+
+                        </button>
+
+                        <button
+                            class="language-option"
+                            data-language="java"
+                            type="button">
+
+                            Java
+
+                        </button>
+
+                        <button
+                            class="language-option"
+                            data-language="python"
+                            type="button">
+
+                            Python
+
+                        </button>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </header>
 
 
-        <!-- Left -->
 
-        <div class="editor">
+        <!-- MAIN -->
 
-            <h2>Source Code</h2>
+        <main class="workspace">
 
-            <textarea id="code" placeholder="#include<iostream>
+
+            <!-- LEFT -->
+
+            <section class="editor-panel">
+
+                <div class="panel-header">
+
+                    <div class="panel-title-area">
+
+                        <span class="panel-title">
+
+                            Source Code
+
+                        </span>
+
+                        <span class="file-badge">
+
+                            main.cpp
+
+                        </span>
+
+                    </div>
+
+                    <span class="panel-language">
+
+                        C++
+
+                    </span>
+
+                </div>
+
+
+                <div class="editor-area">
+
+                    <textarea
+
+                        id="code"
+
+                        spellcheck="false"
+
+                        autocomplete="off"
+
+                        autocorrect="off"
+
+                        autocapitalize="off"
+
+                        placeholder="#include<iostream>
 
 using namespace std;
 
-int main(){
+int main()
+{
 
     cout << &quot;Hello World&quot;;
 
     return 0;
-}"></textarea>
 
-        </div>
+}"
 
+                    ></textarea>
 
-        <!-- Right -->
-
-        <div class="right-panel">
-
-            <div class="input-box">
-
-                <h2>Program Input</h2>
-
-                <textarea id="input" placeholder="Enter Program Input"></textarea>
-
-            </div>
+                </div>
 
 
-            <!-- Buttons -->
+                <div class="editor-footer">
 
-            <div class="button-group">
+                    <div class="editor-hint">
 
-                <button type ="button" id="runBtn">
+                        Write your C++ program and click Run Code.
 
-                    ▶ Run
+                    </div>
 
-                </button>
+                    <button
 
-                <button type="button" id="saveBtn">
+                        id="runBtn"
 
-                    💾 Save
+                        class="run-btn"
 
-                </button>
+                        type="button">
 
-                <button type ="button" id="shareBtn">
+                        <span class="run-icon">
 
-                    🔗 Share
+                            ▶
 
-                </button>
+                        </span>
 
-            </div>
+                        Run Code
+
+                    </button>
+
+                </div>
+
+            </section>
 
 
-            <!-- Output -->
 
-            <div class="output-box">
+            <!-- RIGHT -->
 
-                <h2>Program Output</h2>
+            <section class="right-panel">
 
-                <pre id="output">Program output will appear here...</pre>
 
-            </div>
+                <!-- INPUT -->
 
-        </div>
+                <div class="input-panel">
+
+                    <div class="panel-header">
+
+                        <div class="panel-title-area">
+
+                            <span class="panel-title">
+
+                                Program Input
+
+                            </span>
+
+                        </div>
+
+                        <span class="panel-language">
+
+                            stdin
+
+                        </span>
+
+                    </div>
+
+                    <div class="input-area">
+
+                        <textarea
+
+                            id="input"
+
+                            spellcheck="false"
+
+                            placeholder="Enter program input..."
+
+                        ></textarea>
+
+                    </div>
+
+                </div>
+
+
+
+                <!-- OUTPUT -->
+
+                <div class="terminal-panel">
+
+                    <div class="terminal-header">
+
+                        <div class="terminal-title-area">
+
+                            <div class="terminal-dots">
+
+                                <span></span>
+
+                                <span></span>
+
+                                <span></span>
+
+                            </div>
+
+                            <span class="terminal-title">
+
+                                Terminal / Output
+
+                            </span>
+
+                        </div>
+
+                        <span
+
+                            id="terminalStatus"
+
+                            class="terminal-status">
+
+                            Ready
+
+                        </span>
+
+                    </div>
+
+                    <div class="terminal-body">
+
+                        <pre id="output">
+
+Program output will appear here...
+
+                        </pre>
+
+                    </div>
+
+                </div>
+
+            </section>
+
+        </main>
+
+
+        <!-- FOOTER -->
+
+        <footer class="footer">
+
+            <span>
+
+                LexBridge © 2026
+
+            </span>
+
+            <span class="footer-separator">
+
+                •
+
+            </span>
+
+            <span>
+
+                C++ Compiler
+
+            </span>
+
+        </footer>
 
     </div>
 
-<script src="cpp_script.js"></script>
+
+    <script src="cpp_script.js"></script>
 
 </body>
 
