@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LexBridge | Compiler Workspace</title>
+    <link rel="stylesheet" href="python_style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div class="navbar">
+        <div class="navbar-left">
+            <div class="logo-badge">L</div>
+            <div class="navbar-titles">
+                <div class="logo">LexBridge</div>
+                <div class="subtitle">Interactive Compiler Workspace</div>
+            </div>
+        </div>
+
+        <div class="language-dropdown-container">
+            <span class="label">Language:</span>
+            <select id="languageSelect" class="language-select">
+                <option value="c">C</option>
+                <option value="cpp">C++</option>
+                <option value="java">Java</option>
+                <option value="python" selected>Python</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="editor">
+            <div class="card-header">
+                <h2>Source Code</h2>
+                <span class="file-tag">main.py</span>
+            </div>
+            <textarea id="code"></textarea>
+            <div class="editor-footer">
+                <span class="hint">Write your code and click Run Code.</span>
+                <button id="runBtn">▶ Run Code</button>
+            </div>
+        </div>
+
+        <div class="right-panel">
+            <div class="input-box">
+                <div class="card-header">
+                    <h2>Program Input</h2>
+                </div>
+                <textarea id="input" placeholder="Enter Input (optional)"></textarea>
+            </div>
+
+            <div class="output-box">
+                <div class="terminal-header">
+                    <div class="terminal-header-left">
+                        <div class="dots">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                        <span class="terminal-title">Terminal / Output</span>
+                    </div>
+                    <span class="status-badge idle">Ready</span>
+                </div>
+                <div class="tab-content active" id="outputTab">
+                    <pre id="output">Output will appear here after execution...</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="python_script.js"></script>
+</body>
+</html>

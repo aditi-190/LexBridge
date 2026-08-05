@@ -10,7 +10,7 @@ const javaRoutes = require("./routes/javaRoutes");
 const cRoutes = require("./routes/cRoutes");
 const cppRoutes = require("./routes/cppRoutes");
 const historyRoutes = require("./routes/historyRoutes");
-
+const pythonRoutes = require("./routes/pythonRoutes"); // <-- ১. Python Routes যুক্ত করা হলো
 
 require("dotenv").config();
 
@@ -36,6 +36,7 @@ app.use("/api/java", javaRoutes);
 app.use("/api/c", cRoutes);
 app.use("/api/cpp", cppRoutes);
 app.use("/api/history", historyRoutes);
+app.use("/api/python", pythonRoutes); // <-- ২. Python Route Mount করা হলো
 
 app.get("/", (req, res) => {
     res.json({ message: "LexBridge backend is running" });
