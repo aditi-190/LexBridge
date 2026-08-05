@@ -1,96 +1,66 @@
-const { executeProgram } = require("./programExecutor");
-
 const { tokenizeC } = require("./lexer");
 const { parseC } = require("./parser");
-
 const { buildSymbolTable } = require("./symbolTable");
-
 const { analyzeSemantic } = require("./semanticAnalyzer");
-
 const { generateTAC } = require("./tacGenerator");
+const { executeProgram } = require("./programExecutor");
+console.log("compileC.js loaded");
 
 
-function compileC(sourceCode) {
+function compileC(sourceCode,input=[]) {
+     
+
+    // =========================
+    // 1. Lexical Analysis
+    // =========================
 
     const lexical = tokenizeC(sourceCode);
+    console.log("\n===== TOKENS =====");
 
+lexical.tokens.forEach(token => {
+    console.log(token.type, token.value);
+});
 
     if (lexical.errors.length > 0) {
 
         return {
-
             success: false,
-
             phase: "Lexical Analysis",
-
             errors: lexical.errors
-
         };
 
     }
 
-    const syntax = parseC(
-        lexical.tokens
-    );
 
+    // =========================
+    // 2. Syntax Analysis
+    // =========================
+
+    const syntax = parseC(lexical.tokens);
+    console.log("\n===== AST =====");
+
+console.log(JSON.stringify(syntax.ast, null, 2));
 
     if (syntax.errors.length > 0) {
 
         return {
-
             success: false,
-
             phase: "Syntax Analysis",
-
             errors: syntax.errors,
-
             tokens: lexical.tokens
-
         };
 
     }
-
 
     const ast = syntax.ast;
 
-    const mainFunction =
-        ast &&
-        Array.isArray(ast.body)
-            ? ast.body.find(
-                node =>
-                    node &&
-                    node.type === "MainFunction"
-            )
-            : null;
 
-
-    if (!mainFunction) {
-
-        return {
-
-            success: false,
-
-            phase: "Syntax Analysis",
-
-            errors: [
-                {
-                    message: "main function not found",
-                    line: 0,
-                    column: 0
-                }
-            ],
-
-            tokens: lexical.tokens,
-
-            ast
-
-        };
-
-    }
+    // =========================
+    // 3. Symbol Table
+    // =========================
 
     const symbolResult =
         buildSymbolTable(ast);
-
 
     if (
         symbolResult.errors &&
@@ -98,29 +68,24 @@ function compileC(sourceCode) {
     ) {
 
         return {
-
             success: false,
-
             phase: "Symbol Table",
-
-            errors:
-                symbolResult.errors,
-
+            errors: symbolResult.errors,
             tokens: lexical.tokens,
-
             ast,
-
             symbolTable:
                 symbolResult.symbolTable
-
         };
 
     }
 
 
+    // =========================
+    // 4. Semantic Analysis
+    // =========================
+
     const semantic =
         analyzeSemantic(ast);
-
 
     if (
         semantic.errors &&
@@ -128,24 +93,22 @@ function compileC(sourceCode) {
     ) {
 
         return {
-
             success: false,
-
             phase: "Semantic Analysis",
-
-            errors:
-                semantic.errors,
-
+            errors: semantic.errors,
             tokens: lexical.tokens,
-
             ast,
-
             symbolTable:
                 symbolResult.symbolTable
-
         };
 
     }
+
+
+    // =========================
+    // 5. TAC Generation
+    // =========================
+
     const tacResult =
         generateTAC(ast);
 
@@ -156,8 +119,6 @@ function compileC(sourceCode) {
             : [];
 
 
-    // Debug TAC
-
     console.log(
         "\n===== GENERATED TAC ====="
     );
@@ -166,31 +127,27 @@ function compileC(sourceCode) {
         tac.join("\n")
     );
 
-    const execution =
-        executeProgram(ast);
+
+    // =========================
+    // 6. Program Execution
+    // =========================
+const execution = executeProgram(ast, input);
+
+
     if (!execution) {
 
         return {
-
             success: false,
-
             phase: "Program Execution",
-
             tokens: lexical.tokens,
-
             ast,
-
             symbolTable:
                 symbolResult.symbolTable,
-
             semanticErrors:
                 semantic.errors,
-
             tac,
-
             error:
                 "Program execution returned no result."
-
         };
 
     }
@@ -199,33 +156,28 @@ function compileC(sourceCode) {
     if (!execution.success) {
 
         return {
-
             success: false,
-
             phase: "Program Execution",
-
             tokens: lexical.tokens,
-
             ast,
-
             symbolTable:
                 symbolResult.symbolTable,
-
             semanticErrors:
                 semantic.errors,
-
             tac,
-
+            output:
+                execution.output || "",
             error:
                 execution.error ||
-                "Program execution failed.",
-
-            output:
-                execution.output || ""
-
+                "Program execution failed."
         };
 
     }
+
+
+    // =========================
+    // 7. FINAL RESULT
+    // =========================
 
     return {
 
@@ -247,17 +199,27 @@ function compileC(sourceCode) {
         tac,
 
         output:
-            execution.output || ""
+            execution.output || "",
+
+        result:
+            execution.result,
+
+        variables:
+            execution.variables
 
     };
 
 }
 
+
+// ==========================================
+// EXPORT
+// ==========================================
+
 module.exports = {
 
     compileC,
 
-    // Compatible with controller/service
     runCompiler: compileC
 
 };

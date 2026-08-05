@@ -2,6 +2,14 @@ class ProgramExecutor {
 
     constructor(input = "") {
 
+            console.log("Constructor input:", input);
+
+    this.inputs = input.trim()
+        ? input.trim().split(/\s+/)
+        : [];
+
+    console.log("Parsed inputs:", this.inputs);
+
         this.variables = {};
 
         this.functions = {};
@@ -212,6 +220,8 @@ for (const node of program.body) {
 
                 break;
 
+                
+
             case "Block":
 
                 for (const statement of node.body) {
@@ -392,8 +402,11 @@ executeCin(node) {
 this.variables[variable] = Number(value);
 
     }
+    console.log("executeCin()");
+console.log(this.inputs);
 
 }
+
 
 // ==========================================
 // RETURN
@@ -694,8 +707,9 @@ evaluateBinary(node) {
 
 function executeProgram(ast, input = "") {
 
-    const executor =
-        new ProgramExecutor(input);
+    console.log("executeProgram input:", input);
+
+    const executor = new ProgramExecutor(input);
 
     return executor.run(ast);
 

@@ -3,6 +3,8 @@ const { parseC } = require("./parser");
 const { generateTAC } = require("./tacGenerator");
 
 const code = `
+#include <stdio.h>
+
 int add(int a, int b) {
 
     return a + b;
@@ -11,12 +13,20 @@ int add(int a, int b) {
 
 int main() {
 
+    int i;
     int result;
 
-    result = add(10, 20);
+    i = 1;
 
-    print "Result:";
-    print result;
+    while (i <= 3) {
+
+        result = add(i, 10);
+
+        printf("Result = %d\\n", result);
+
+        i = i + 1;
+
+    }
 
     return 0;
 }
@@ -24,9 +34,13 @@ int main() {
 
 const lexical = tokenizeC(code);
 
-const syntax = parseC(lexical.tokens);
+const syntax = parseC(
+    lexical.tokens
+);
 
-console.log("Lexer Errors:");
+console.log("===== TAC TEST =====");
+
+console.log("\nLexer Errors:");
 console.log(lexical.errors);
 
 console.log("\nParser Errors:");
@@ -37,12 +51,13 @@ if (
     syntax.errors.length === 0
 ) {
 
-    const tac = generateTAC(syntax.ast);
+    const tacResult =
+        generateTAC(syntax.ast);
 
     console.log("\n===== TAC =====");
 
     console.log(
-        tac.code.join("\n")
+        tacResult.code.join("\n")
     );
 
 }

@@ -12,26 +12,48 @@ class ProgramExecutor {
 
         this.stopped = false;
 
-    }
-    execute(ast) {
-
-        return this.run(ast);
+        this.input = [];
+          this.inputIndex = 0;
 
     }
 
-    run(ast) {
 
-        if (!ast) {
+    // ==========================================
+    // EXECUTE
+    // ==========================================
 
-            return {
-                success: false,
-                output: "",
-                error: "No AST provided."
-            };
+   execute(ast, input = "") {
 
-        }
+    return this.run(ast, input);
 
+}
+
+
+    // ==========================================
+    // RUN
+    // ==========================================
+
+    run(ast, input = "") {
+
+    this.input = input
+        .toString()
+        .trim()
+        .split(/\s+/)
+        .filter(x => x !== "");
+
+    this.inputIndex = 0;
+
+    if (!ast) {
+
+        return {
+            success: false,
+            output: "",
+            error: "No AST provided."
+        };
+
+    }
         let program = ast;
+
 
         if (
             ast.ast &&
@@ -49,13 +71,16 @@ class ProgramExecutor {
         ) {
 
             return {
+
                 success: false,
                 output: "",
                 error:
                     "Invalid AST: Program node not found."
+
             };
 
         }
+
 
         this.variables = {};
 
@@ -67,23 +92,26 @@ class ProgramExecutor {
 
         this.stopped = false;
 
+
         if (!Array.isArray(program.body)) {
 
             return {
+
                 success: false,
                 output: "",
                 error: "Program body not found."
+
             };
 
         }
 
+
+        // Collect functions
+
         for (const node of program.body) {
 
-            if (!node) {
-                continue;
-            }
-
             if (
+                node &&
                 node.type === "FunctionDeclaration"
             ) {
 
@@ -92,6 +120,9 @@ class ProgramExecutor {
             }
 
         }
+
+
+        // Find main()
 
         const mainFunction =
             program.body.find(
@@ -110,12 +141,15 @@ class ProgramExecutor {
         if (!mainFunction) {
 
             return {
+
                 success: false,
                 output: "",
-                error: "main function not found"
+                error: "main function not found."
+
             };
 
         }
+
 
         try {
 
@@ -126,8 +160,7 @@ class ProgramExecutor {
 
                 success: true,
 
-                output:
-                    this.output.join("\n"),
+              output: this.output.join(""),
 
                 result:
                     this.returnValue,
@@ -139,7 +172,9 @@ class ProgramExecutor {
 
             };
 
-        } catch (error) {
+        }
+
+        catch (error) {
 
             return {
 
@@ -163,28 +198,50 @@ class ProgramExecutor {
 
     }
 
+
+    // ==========================================
+    // VISITOR
+    // ==========================================
+
     visit(node) {
 
-        if (!node) {
-            return;
-        }
+        if (!node) return;
 
 
         switch (node.type) {
 
+            case "ForStatement":
+
+    this.executeFor(node);
+
+    break;
+
+    case "DoWhileStatement":
+
+    this.executeDoWhile(node);
+
+    break;
+
+    case "ScanfStatement":
+
+    this.executeScanf(node);
+
+    break;
+    
+
+
             case "MainFunction":
 
-                if (node.body) {
-
-                    this.visit(node.body);
-
-                }
+                this.visit(node.body);
 
                 break;
+
 
             case "FunctionDeclaration":
 
                 break;
+
+
             case "Block":
 
                 if (Array.isArray(node.body)) {
@@ -206,6 +263,16 @@ class ProgramExecutor {
                 }
 
                 break;
+    
+
+
+            case "IncludeDirective":
+
+                // #include <stdio.h>
+                // No runtime action needed.
+
+                break;
+
 
             case "VariableDeclaration":
 
@@ -215,6 +282,7 @@ class ProgramExecutor {
 
                 break;
 
+
             case "Assignment":
 
                 this.executeAssignment(
@@ -222,6 +290,13 @@ class ProgramExecutor {
                 );
 
                 break;
+                case "CallExpression":
+
+    this.evaluate(node);
+
+    break;
+
+
             case "PrintStatement":
 
                 this.executePrint(
@@ -230,6 +305,7 @@ class ProgramExecutor {
 
                 break;
 
+
             case "IfStatement":
 
                 this.executeIf(
@@ -237,6 +313,8 @@ class ProgramExecutor {
                 );
 
                 break;
+
+
             case "WhileStatement":
 
                 this.executeWhile(
@@ -244,6 +322,7 @@ class ProgramExecutor {
                 );
 
                 break;
+
 
             case "ReturnStatement":
 
@@ -253,16 +332,14 @@ class ProgramExecutor {
 
                 break;
 
-
-            default:
-
-                throw new Error(
-                    `Unsupported AST node: ${node.type}`
-                );
-
         }
 
     }
+
+
+    // ==========================================
+    // VARIABLE DECLARATION
+    // ==========================================
 
     executeVariableDeclaration(node) {
 
@@ -284,6 +361,150 @@ class ProgramExecutor {
         ] = value;
 
     }
+
+    executeDoWhile(node) {
+
+
+    let counter = 0;
+
+    const MAX_ITERATIONS = 100000;
+
+
+    do {
+
+
+        this.visit(node.body);
+
+
+        if(this.stopped){
+
+            break;
+
+        }
+
+
+        counter++;
+
+
+        if(counter > MAX_ITERATIONS){
+
+            throw new Error(
+                "Possible infinite loop detected."
+            );
+
+        }
+
+
+    }
+    while(
+        Boolean(
+            this.evaluate(
+                node.condition
+            )
+        )
+    );
+
+
+}
+// ==========================================
+// FOR LOOP
+// ==========================================
+
+executeFor(node) {
+
+
+    // initialization
+
+    this.visit(
+        node.initialization
+    );
+
+
+    let counter = 0;
+
+    const MAX_ITERATIONS = 100000;
+
+
+    while (
+
+        Boolean(
+            this.evaluate(
+                node.condition
+            )
+
+        )
+
+    ) {
+
+
+        // body
+
+        this.visit(
+            node.body
+        );
+
+
+        if (this.stopped) {
+
+            break;
+
+        }
+
+
+        // update
+
+        this.visit(
+            node.update
+        );
+
+
+        counter++;
+
+
+        if (
+            counter > MAX_ITERATIONS
+        ) {
+
+            throw new Error(
+                "Possible infinite loop detected."
+            );
+
+        }
+
+    }
+
+}
+executeScanf(node){
+
+    if(
+        this.inputIndex >= this.input.length
+    ){
+
+        throw new Error(
+            "Input not provided"
+        );
+
+    }
+
+
+    const value =
+        Number(
+            this.input[this.inputIndex]
+        );
+
+
+    this.inputIndex++;
+
+
+    this.variables[node.variable] =
+        value;
+
+}
+
+
+    // ==========================================
+    // ASSIGNMENT
+    // ==========================================
 
     executeAssignment(node) {
 
@@ -310,6 +531,11 @@ class ProgramExecutor {
 
     }
 
+
+    // ==========================================
+    // CUSTOM PRINT
+    // ==========================================
+
     executePrint(node) {
 
         const value =
@@ -323,6 +549,11 @@ class ProgramExecutor {
         );
 
     }
+
+
+    // ==========================================
+    // IF
+    // ==========================================
 
     executeIf(node) {
 
@@ -351,6 +582,12 @@ class ProgramExecutor {
         }
 
     }
+
+
+    // ==========================================
+    // WHILE
+    // ==========================================
+
     executeWhile(node) {
 
         let counter = 0;
@@ -366,9 +603,7 @@ class ProgramExecutor {
             )
         ) {
 
-            this.visit(
-                node.body
-            );
+            this.visit(node.body);
 
 
             if (this.stopped) {
@@ -395,6 +630,11 @@ class ProgramExecutor {
 
     }
 
+
+    // ==========================================
+    // RETURN
+    // ==========================================
+
     executeReturn(node) {
 
         this.returnValue =
@@ -407,6 +647,11 @@ class ProgramExecutor {
 
     }
 
+
+    // ==========================================
+    // EVALUATE
+    // ==========================================
+
     evaluate(node) {
 
         if (!node) {
@@ -414,6 +659,10 @@ class ProgramExecutor {
             return null;
 
         }
+
+
+        // Literal
+
         if (
             node.type === "Literal"
         ) {
@@ -443,6 +692,10 @@ class ProgramExecutor {
             return node.value;
 
         }
+
+
+        // Identifier
+
         if (
             node.type === "Identifier"
         ) {
@@ -457,11 +710,16 @@ class ProgramExecutor {
 
             }
 
+
             return this.variables[
                 node.name
             ];
 
         }
+
+
+        // Function call
+
         if (
             node.type === "CallExpression"
         ) {
@@ -471,6 +729,9 @@ class ProgramExecutor {
             );
 
         }
+
+
+        // Unary
 
         if (
             node.type === "UnaryExpression"
@@ -488,20 +749,13 @@ class ProgramExecutor {
 
                     return !operand;
 
-
                 case "-":
 
-                    return -Number(
-                        operand
-                    );
-
+                    return -Number(operand);
 
                 case "+":
 
-                    return Number(
-                        operand
-                    );
-
+                    return Number(operand);
 
                 default:
 
@@ -512,6 +766,9 @@ class ProgramExecutor {
             }
 
         }
+
+
+        // Binary
 
         if (
             node.type === "BinaryExpression"
@@ -529,10 +786,29 @@ class ProgramExecutor {
         );
 
     }
+
+
+    // ==========================================
+    // FUNCTION CALL
+    // ==========================================
+
     executeFunctionCall(node) {
 
         const functionName =
             node.name;
+
+
+        // Built-in printf()
+
+        if (
+            functionName === "printf"
+        ) {
+
+            return this.executePrintf(
+                node
+            );
+
+        }
 
 
         const functionNode =
@@ -570,12 +846,13 @@ class ProgramExecutor {
 
             throw new Error(
                 `Function '${functionName}' expects ` +
-                `${functionNode.params.length} ` +
-                `argument(s), but got ` +
-                `${argumentValues.length}.`
+                `${functionNode.params.length} argument(s), ` +
+                `but got ${argumentValues.length}.`
             );
 
         }
+
+
         const previousVariables =
             this.variables;
 
@@ -585,11 +862,13 @@ class ProgramExecutor {
         const previousStopped =
             this.stopped;
 
+
         this.variables = {};
 
         this.returnValue = null;
 
         this.stopped = false;
+
 
         for (
             let i = 0;
@@ -611,8 +890,6 @@ class ProgramExecutor {
 
         try {
 
-            // Execute function body
-
             this.visit(
                 functionNode.body
             );
@@ -622,10 +899,7 @@ class ProgramExecutor {
 
         }
 
-
         finally {
-
-            // Restore caller context
 
             this.variables =
                 previousVariables;
@@ -639,11 +913,264 @@ class ProgramExecutor {
         }
 
     }
+
+
+    // ==========================================
+    // REAL printf()
+    // ==========================================
+
+    executePrintf(node) {
+
+        const args =
+            Array.isArray(node.arguments)
+                ? node.arguments
+                : [];
+
+
+        if (args.length === 0) {
+
+            return 0;
+
+        }
+
+
+        const format =
+            this.evaluate(
+                args[0]
+            );
+
+
+        if (
+            typeof format !== "string"
+        ) {
+
+            throw new Error(
+                "printf first argument must be a string."
+            );
+
+        }
+
+
+        const values =
+            args
+                .slice(1)
+                .map(
+                    argument =>
+                        this.evaluate(argument)
+                );
+
+
+        const output =
+            this.formatPrintf(
+                format,
+                values
+            );
+
+
+        this.output.push(
+            output
+        );
+
+
+        // C printf returns number of characters
+        return output.length;
+
+    }
+
+
+    // ==========================================
+    // FORMAT printf STRING
+    // ==========================================
+
+    formatPrintf(format, values) {
+
+        let index = 0;
+
+
+        let result = "";
+
+
+        for (
+            let i = 0;
+            i < format.length;
+            i++
+        ) {
+
+            const ch =
+                format[i];
+
+
+            // Escape sequence
+
+            if (
+                ch === "\\" &&
+                i + 1 < format.length
+            ) {
+
+                const next =
+                    format[i + 1];
+
+
+                if (next === "n") {
+
+                    result += "\n";
+
+                    i++;
+
+                    continue;
+
+                }
+
+
+                if (next === "t") {
+
+                    result += "\t";
+
+                    i++;
+
+                    continue;
+
+                }
+
+
+                if (next === "\\") {
+
+                    result += "\\";
+
+                    i++;
+
+                    continue;
+
+                }
+
+
+                if (next === '"') {
+
+                    result += '"';
+
+                    i++;
+
+                    continue;
+
+                }
+
+
+                result += next;
+
+                i++;
+
+                continue;
+
+            }
+
+
+            // Format specifier
+
+            if (
+                ch === "%" &&
+                i + 1 < format.length
+            ) {
+
+                const specifier =
+                    format[i + 1];
+
+
+                const value =
+                    values[index];
+
+
+                switch (specifier) {
+
+
+                    case "d":
+                    case "i":
+
+                        result +=
+                            Number(value);
+
+                        index++;
+
+                        i++;
+
+                        continue;
+
+
+                    case "f":
+
+                        result +=
+                            Number(value);
+
+                        index++;
+
+                        i++;
+
+                        continue;
+
+
+                    case "s":
+
+                        result +=
+                            String(value);
+
+                        index++;
+
+                        i++;
+
+                        continue;
+
+
+                    case "c":
+
+                        result +=
+                            String(value)
+                                .charAt(0);
+
+                        index++;
+
+                        i++;
+
+                        continue;
+
+
+                    case "%":
+
+                        result += "%";
+
+                        i++;
+
+                        continue;
+
+
+                    default:
+
+                        result += "%";
+
+                }
+
+            }
+
+
+            result += ch;
+
+        }
+
+
+        return result;
+
+    }
+
+
+    // ==========================================
+    // BINARY EXPRESSION
+    // ==========================================
+
     evaluateBinary(node) {
 
         const operator =
             node.operator;
 
+
+        // &&
 
         if (operator === "&&") {
 
@@ -669,6 +1196,9 @@ class ProgramExecutor {
             );
 
         }
+
+
+        // ||
 
         if (operator === "||") {
 
@@ -709,6 +1239,7 @@ class ProgramExecutor {
 
         switch (operator) {
 
+
             case "+":
 
                 if (
@@ -725,6 +1256,7 @@ class ProgramExecutor {
                     String(right)
                 );
 
+
             case "-":
 
                 return (
@@ -732,12 +1264,14 @@ class ProgramExecutor {
                     Number(right)
                 );
 
+
             case "*":
 
                 return (
                     Number(left) *
                     Number(right)
                 );
+
 
             case "/":
 
@@ -756,6 +1290,7 @@ class ProgramExecutor {
                     Number(right)
                 );
 
+
             case "%":
 
                 if (
@@ -772,6 +1307,7 @@ class ProgramExecutor {
                     Number(left) %
                     Number(right)
                 );
+
 
             case "<":
 
@@ -791,6 +1327,7 @@ class ProgramExecutor {
             case ">=":
 
                 return left >= right;
+
 
             case "==":
 
@@ -814,14 +1351,23 @@ class ProgramExecutor {
 
 }
 
-function executeProgram(ast) {
 
-    const executor =
-        new ProgramExecutor();
+// ==========================================
+// PUBLIC FUNCTION
+// ==========================================
 
-    return executor.run(ast);
+function executeProgram(ast, input = "") {
+
+    const executor = new ProgramExecutor();
+
+    return executor.run(ast, input);
 
 }
+
+
+// ==========================================
+// EXPORT
+// ==========================================
 
 module.exports = {
 

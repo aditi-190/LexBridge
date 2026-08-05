@@ -9,6 +9,7 @@ class TACGenerator {
         this.tempCount = 0;
 
         this.labelCount = 0;
+        
 
     }
 
@@ -88,6 +89,24 @@ class TACGenerator {
                     );
 
                 }
+
+                break;
+
+
+            // ==================================
+            // INCLUDE DIRECTIVE
+            // ==================================
+
+            case "IncludeDirective":
+
+                /*
+                 * Include is a preprocessing directive.
+                 * Keep it visible in TAC for debugging.
+                 */
+
+                this.emit(
+                    `INCLUDE <${node.header}>`
+                );
 
                 break;
 
@@ -235,11 +254,37 @@ class TACGenerator {
 
                 break;
 
+
             }
+            // ==================================
+// FUNCTION CALL
+// ==================================
+
+case "CallExpression": {
+
+    // standalone function call
+    this.visitExpression(node);
+
+    break;
+}
+
+// ----------------------------------
+// SCANF INPUT
+// ----------------------------------
+
+case "ScanfStatement": {
+
+    this.emit(
+        `READ ${node.variable}`
+    );
+
+    break;
+
+}
 
 
             // ==================================
-            // PRINT
+            // CUSTOM PRINT
             // ==================================
 
             case "PrintStatement": {
@@ -277,7 +322,9 @@ class TACGenerator {
                         `RETURN ${value}`
                     );
 
-                } else {
+                }
+
+                else {
 
                     this.emit(
                         `RETURN`
@@ -418,24 +465,42 @@ class TACGenerator {
             // ==================================
             // LITERAL
             // ==================================
-
-            case "Literal":
+              case "ForStatement":
+            case "Literal": {
 
                 /*
-                 * String literals are quoted so that
-                 * TAC clearly shows them as strings.
+                 * Keep strings quoted in TAC.
                  */
 
                 if (
-                    typeof node.value === "string"
+                    typeof node.value ===
+                    "string"
                 ) {
 
-                    return `"${node.value}"`;
+                    return `"${this.escapeString(
+                        node.value
+                    )}"`;
 
                 }
 
 
-                return String(node.value);
+                if (
+                    typeof node.value ===
+                    "boolean"
+                ) {
+
+                    return node.value
+                        ? "true"
+                        : "false";
+
+                }
+
+
+                return String(
+                    node.value
+                );
+
+            }
 
 
             // ==================================
@@ -478,6 +543,11 @@ class TACGenerator {
 
             }
 
+
+            // ==================================
+            // UNARY EXPRESSION
+            // ==================================
+
             case "UnaryExpression": {
 
                 const operand =
@@ -500,6 +570,10 @@ class TACGenerator {
             }
 
 
+            // ==================================
+            // FUNCTION CALL
+            // ==================================
+
             case "CallExpression": {
 
                 const functionName =
@@ -514,14 +588,95 @@ class TACGenerator {
 
 
                 const args =
-                    Array.isArray(node.arguments)
+                    Array.isArray(
+                        node.arguments
+                    )
                         ? node.arguments
                         : [];
 
 
-                /*
-                 * Evaluate arguments first.
-                 */
+                // ==================================
+                // REAL C printf()
+                // ==================================
+
+                if (
+                    functionName === "printf"
+                ) {
+
+                    if (
+                        args.length === 0
+                    ) {
+
+                        this.emit(
+                            `PRINTF`
+                        );
+
+                        return "";
+
+                    }
+
+
+                    /*
+                     * First argument is the
+                     * printf format string.
+                     */
+
+                    const format =
+                        this.visitExpression(
+                            args[0]
+                        );
+
+
+                    /*
+                     * Remaining arguments.
+                     */
+
+                    const values =
+                        args
+                            .slice(1)
+                            .map(
+                                argument =>
+                                    this.visitExpression(
+                                        argument
+                                    )
+                            );
+
+
+                    if (
+                        values.length === 0
+                    ) {
+
+                        this.emit(
+                            `PRINTF ${format}`
+                        );
+
+                    }
+
+                    else {
+
+                        this.emit(
+                            `PRINTF ${format}, ${values.join(", ")}`
+                        );
+
+                    }
+
+
+                    /*
+                     * C printf returns int.
+                     *
+                     * For now we don't need
+                     * the return value for normal
+                     * standalone printf usage.
+                     */
+
+                    return "";
+
+                }
+
+
+                // ==================================
+                // USER-DEFINED FUNCTION CALL
+                // ==================================
 
                 const argumentValues =
                     args.map(
@@ -533,7 +688,7 @@ class TACGenerator {
 
 
                 /*
-                 * Emit parameters.
+                 * Pass parameters.
                  */
 
                 argumentValues.forEach(
@@ -547,25 +702,17 @@ class TACGenerator {
                 );
 
 
-        
+                /*
+                 * Function returns a value.
+                 */
 
                 const temp =
                     this.newTemp();
 
 
-                if (argumentValues.length > 0) {
-
-                    this.emit(
-                        `${temp} = CALL ${functionName}, ${argumentValues.length}`
-                    );
-
-                } else {
-
-                    this.emit(
-                        `${temp} = CALL ${functionName}, 0`
-                    );
-
-                }
+                this.emit(
+                    `${temp} = CALL ${functionName}, ${argumentValues.length}`
+                );
 
 
                 return temp;
@@ -581,20 +728,45 @@ class TACGenerator {
 
     }
 
+
+    // ==========================================
+    // ESCAPE STRING
+    // ==========================================
+
+    escapeString(value) {
+
+        return String(value)
+            .replace(/\\/g, "\\\\")
+            .replace(/"/g, '\\"');
+
+    }
+
 }
 
+
+// ==========================================
+// PUBLIC FUNCTION
+// ==========================================
 
 function generateTAC(ast) {
 
     const generator =
         new TACGenerator(ast);
 
+
     return {
-        code: generator.generate()
+
+        code:
+            generator.generate()
+
     };
 
 }
 
+
+// ==========================================
+// EXPORT
+// ==========================================
 
 module.exports = {
 

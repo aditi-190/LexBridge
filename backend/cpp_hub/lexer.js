@@ -22,7 +22,8 @@ const TokenType = {
     SEMICOLON: "SEMICOLON",
     COMMA: "COMMA",
 
-    EOF: "EOF"
+    EOF: "EOF",
+    HASH: "HASH"
 };
 
 const KEYWORDS = [
@@ -53,38 +54,59 @@ const KEYWORDS = [
 
     "include",
 
-    "std",
-
     "cin",
     "cout",
 
-    "endl"
+    "endl",
+   "do",
+
+"break",
+
+"continue",
+
+"switch",
+
+"case",
+
+"default"
+
 
 ];
 
 const OPERATORS = [
 
-    "<<",
-    ">>",
+   
+"<<",
+">>",
 
-    "==",
-    "!=",
-    "<=",
-    ">=",
-    "&&",
-    "||",
-    "++",
-    "--",
+"==",
+"!=",
+"<=",
+">=",
 
-    "=",
-    "+",
-    "-",
-    "*",
-    "/",
-    "%",
-    "<",
-    ">",
-    "!"
+"&&",
+"||",
+
+"++",
+"--",
+
+"+=",
+"-=",
+"*=",
+"/=",
+
+"=",
+
+"+",
+"-",
+"*",
+"/",
+"%",
+
+"<",
+">",
+
+"!"
 
 ];
 
@@ -100,7 +122,8 @@ const PUNCTUATION = {
     "]": TokenType.RBRACKET,
 
     ";": TokenType.SEMICOLON,
-    ",": TokenType.COMMA
+    ",": TokenType.COMMA,
+    "#": TokenType.HASH,
 
 };
 
@@ -340,34 +363,29 @@ class Lexer {
         };
 
     }
-
     matchOperator() {
 
-        for (const op of OPERATORS) {
+    console.log("Checking:", this.source.substring(this.position, this.position + 5));
 
-            if (this.source.startsWith(op, this.position)) {
+    for (const op of OPERATORS) {
 
-                this.position += op.length;
+        if (this.source.startsWith(op, this.position)) {
 
-                this.column += op.length;
+            console.log("Matched:", op);
 
-                return {
+            this.position += op.length;
+            this.column += op.length;
 
-                    type: TokenType.OPERATOR,
-
-                    value: op,
-
-                    tokenName: "OPERATOR"
-
-                };
-
-            }
-
+            return {
+                type: TokenType.OPERATOR,
+                value: op,
+                tokenName: "OPERATOR"
+            };
         }
-
-        return null;
-
     }
+
+    return null;
+}
         tokenize() {
 
         while (!this.isAtEnd()) {
@@ -383,28 +401,7 @@ class Lexer {
 
             const ch = this.peek();
 
-                if (this.source.startsWith("<iostream>", this.position)) {
-
-    this.tokens.push({
-
-        type: TokenType.HEADER,
-
-        value: "iostream",
-
-        tokenName: "HEADER",
-
-        line: startLine,
-
-        column: startColumn
-
-    });
-
-    this.position += "<iostream>".length;
-    this.column += "<iostream>".length;
-
-    continue;
-
-}
+            
             // Number
             if (this.isDigit(ch)) {
 
@@ -433,6 +430,7 @@ class Lexer {
 
             }
 
+           
             // String
             if (ch === '"') {
 

@@ -1,3 +1,4 @@
+
 const { executeProgram } = require("./programExecutor");
 
 const { tokenizeCPP } = require("./lexer");
@@ -11,9 +12,16 @@ const { generateTAC } = require("./tacGenerator");
 
 function compileCpp(sourceCode,input=" ") {
 
+       console.log("===== INPUT RECEIVED =====");
+    console.log(input);
+
     // Lexical Analysis
     const lexical = tokenizeCPP(sourceCode);
+console.log("===== LEXICAL ERRORS =====");
+console.log(lexical.errors);
 
+console.log("===== TOKENS =====");
+console.log(lexical.tokens);
     console.log("===== TOKENS =====");
 console.log(lexical.tokens);
 

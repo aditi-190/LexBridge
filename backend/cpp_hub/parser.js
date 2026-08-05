@@ -166,34 +166,36 @@ body.forEach(node => {
     // ==========================
     // INCLUDE
     // ==========================
+parseInclude() {
 
-    parseInclude() {
+    this.consume(
+        TokenType.HASH,
+        null,
+        "Expected #"
+    );
 
+    this.consume(
+        TokenType.KEYWORD,
+        "include",
+        "Expected include"
+    );
+
+    const header =
         this.consume(
-            TokenType.KEYWORD,
-            "include",
-            "Expected include"
-        );
-
-        const header = this.consume(
             TokenType.HEADER,
             null,
-            "Expected header file"
+            "Expected header"
         );
 
-        return {
+    return {
 
-            type: "IncludeStatement",
+        type:"IncludeStatement",
 
-            header:
-                header
-                    ? header.value
-                    : ""
+        header:header.value
 
-        };
+    };
 
-    }
-
+}
     // ==========================
     // USING NAMESPACE
     // ==========================
@@ -437,6 +439,11 @@ parseStatement() {
         return this.parseReturn();
 
     }
+    if(token.type===TokenType.KEYWORD &&
+   token.value==="do")
+{
+    return this.parseDoWhile();
+}
 
     // if
 
@@ -654,6 +661,7 @@ parseUpdateExpression() {
     };
 
 }
+
 // ==========================================
 // RETURN
 // ==========================================
@@ -1254,6 +1262,33 @@ parseCout() {
         type: "CoutStatement",
 
         values
+
+    };
+
+}
+parseAssignmentWithoutSemicolon(){
+
+    const identifier=this.consume(
+        TokenType.IDENTIFIER,
+        null,
+        "Expected variable"
+    );
+
+    this.consume(
+        TokenType.OPERATOR,
+        "=",
+        "Expected ="
+    );
+
+    const value=this.parseExpression();
+
+    return{
+
+        type:"Assignment",
+
+        identifier:identifier.value,
+
+        value
 
     };
 

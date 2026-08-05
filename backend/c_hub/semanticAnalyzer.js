@@ -12,11 +12,26 @@ class SemanticAnalyzer {
 
         this.currentFunction = null;
 
+        // Built-in C functions
+        this.builtInFunctions = {
+            printf: {
+                returnType: "int"
+            }
+        };
+
     }
+
+
+    // ==========================================
+    // ANALYZE
+    // ==========================================
+
     analyze() {
 
+        // Register user-defined functions first
         this.registerFunctions(this.ast);
 
+        // Analyze complete AST
         this.visit(this.ast);
 
         return {
@@ -31,56 +46,69 @@ class SemanticAnalyzer {
     }
 
 
+    // ==========================================
+    // REGISTER USER FUNCTIONS
+    // ==========================================
+
     registerFunctions(node) {
 
         if (!node) return;
 
+        if (node.type !== "Program") {
 
-        if (node.type === "Program") {
-
-            if (Array.isArray(node.body)) {
-
-                node.body.forEach(child => {
-
-                    if (
-                        child.type === "FunctionDeclaration" ||
-                        child.type === "MainFunction"
-                    ) {
-
-                        const functionName =
-                            child.name || "main";
-
-                        const returnType =
-                            child.returnType || "int";
-
-
-                        const result =
-                            this.symbolTable.declare(
-                                functionName,
-                                returnType,
-                                child.line || 0,
-                                "function"
-                            );
-
-
-                        if (!result.success) {
-
-                            this.addError(
-                                result.error,
-                                child.line || 0
-                            );
-
-                        }
-
-                    }
-
-                });
-
-            }
+            return;
 
         }
 
+        if (!Array.isArray(node.body)) {
+
+            return;
+
+        }
+
+        node.body.forEach(child => {
+
+            if (
+                child &&
+                (
+                    child.type === "FunctionDeclaration" ||
+                    child.type === "MainFunction"
+                )
+            ) {
+
+                const functionName =
+                    child.name || "main";
+
+                const returnType =
+                    child.returnType || "int";
+
+                const result =
+                    this.symbolTable.declare(
+                        functionName,
+                        returnType,
+                        child.line || 0,
+                        "function"
+                    );
+
+                if (!result.success) {
+
+                    this.addError(
+                        result.error,
+                        child.line || 0
+                    );
+
+                }
+
+            }
+
+        });
+
     }
+
+
+    // ==========================================
+    // ERROR
+    // ==========================================
 
     addError(message, line = 0) {
 
@@ -93,33 +121,88 @@ class SemanticAnalyzer {
         });
 
     }
+
+
+    // ==========================================
+    // VISITOR
+    // ==========================================
+
     visit(node) {
 
         if (!node) return;
 
-
         switch (node.type) {
+
+
+            // ==================================
+            // PROGRAM
+            // ==================================
 
             case "Program":
 
                 if (Array.isArray(node.body)) {
 
                     node.body.forEach(
-                        child => this.visit(child)
+                        child =>
+                            this.visit(child)
                     );
 
                 }
 
                 break;
+                case "ForStatement":
+
+    this.visit(node.initialization);
+
+    this.visit(node.condition);
+
+    this.visit(node.update);
+
+    this.visit(node.body);
+
+    break;
+
+    case "DoWhileStatement":
+
+    this.visit(node.body);
+
+    this.visit(node.condition);
+
+    break;
+
+    case "ScanfStatement":
+           this.symbolTable[node.variable] = "int";
+
+    break;
+
+
+            // ==================================
+            // INCLUDE
+            // ==================================
+
+            case "IncludeDirective":
+
+                // Example:
+                // #include <stdio.h>
+                //
+                // No semantic action needed here.
+
+                break;
+
+
+            // ==================================
+            // MAIN FUNCTION
+            // ==================================
+
             case "MainFunction": {
 
                 const previousFunction =
                     this.currentFunction;
 
-
                 this.currentFunction = {
 
-                    name: node.name || "main",
+                    name:
+                        node.name || "main",
 
                     returnType:
                         node.returnType || "int"
@@ -129,35 +212,44 @@ class SemanticAnalyzer {
 
                 this.symbolTable.enterScope();
 
-                if (Array.isArray(node.params)) {
 
-                    node.params.forEach(param => {
+                if (
+                    Array.isArray(
+                        node.params
+                    )
+                ) {
 
-                        const result =
-                            this.symbolTable.declare(
-                                param.name,
-                                param.dataType || "int",
-                                param.line || 0,
-                                "parameter"
-                            );
+                    node.params.forEach(
+                        param => {
 
+                            const result =
+                                this.symbolTable.declare(
+                                    param.name,
+                                    param.dataType || "int",
+                                    param.line || 0,
+                                    "parameter"
+                                );
 
-                        if (!result.success) {
+                            if (!result.success) {
 
-                            this.addError(
-                                result.error,
-                                param.line || 0
-                            );
+                                this.addError(
+                                    result.error,
+                                    param.line || 0
+                                );
+
+                            }
 
                         }
-
-                    });
+                    );
 
                 }
 
+
                 if (
                     node.body &&
-                    Array.isArray(node.body.body)
+                    Array.isArray(
+                        node.body.body
+                    )
                 ) {
 
                     node.body.body.forEach(
@@ -170,65 +262,74 @@ class SemanticAnalyzer {
 
                 this.symbolTable.exitScope();
 
-
                 this.currentFunction =
                     previousFunction;
 
                 break;
 
             }
+
+
+            // ==================================
+            // USER FUNCTION
+            // ==================================
+
             case "FunctionDeclaration": {
 
                 const previousFunction =
                     this.currentFunction;
 
-
                 this.currentFunction = {
 
-                    name: node.name,
+                    name:
+                        node.name,
 
                     returnType:
                         node.returnType || "int"
 
                 };
 
+
                 this.symbolTable.enterScope();
 
 
-                if (Array.isArray(node.params)) {
+                if (
+                    Array.isArray(
+                        node.params
+                    )
+                ) {
 
-                    node.params.forEach(param => {
+                    node.params.forEach(
+                        param => {
 
-                        const result =
-                            this.symbolTable.declare(
-                                param.name,
-                                param.dataType || "int",
-                                param.line || 0,
-                                "parameter"
-                            );
+                            const result =
+                                this.symbolTable.declare(
+                                    param.name,
+                                    param.dataType || "int",
+                                    param.line || 0,
+                                    "parameter"
+                                );
 
+                            if (!result.success) {
 
-                        if (!result.success) {
+                                this.addError(
+                                    result.error,
+                                    param.line || 0
+                                );
 
-                            this.addError(
-                                result.error,
-                                param.line || 0
-                            );
+                            }
 
                         }
-
-                    });
+                    );
 
                 }
 
 
-                /*
-                 * Analyze function body.
-                 */
-
                 if (
                     node.body &&
-                    Array.isArray(node.body.body)
+                    Array.isArray(
+                        node.body.body
+                    )
                 ) {
 
                     node.body.body.forEach(
@@ -241,7 +342,6 @@ class SemanticAnalyzer {
 
                 this.symbolTable.exitScope();
 
-
                 this.currentFunction =
                     previousFunction;
 
@@ -249,12 +349,20 @@ class SemanticAnalyzer {
 
             }
 
+
+            // ==================================
+            // BLOCK
+            // ==================================
+
             case "Block": {
 
                 this.symbolTable.enterScope();
 
-
-                if (Array.isArray(node.body)) {
+                if (
+                    Array.isArray(
+                        node.body
+                    )
+                ) {
 
                     node.body.forEach(
                         statement =>
@@ -263,12 +371,16 @@ class SemanticAnalyzer {
 
                 }
 
-
                 this.symbolTable.exitScope();
 
                 break;
 
             }
+
+
+            // ==================================
+            // VARIABLE DECLARATION
+            // ==================================
 
             case "VariableDeclaration":
 
@@ -276,28 +388,56 @@ class SemanticAnalyzer {
 
                 break;
 
+
+            // ==================================
+            // ASSIGNMENT
+            // ==================================
+
             case "Assignment":
 
                 this.checkAssignment(node);
 
                 break;
 
+
+            // ==================================
+            // IF
+            // ==================================
+
             case "IfStatement":
 
                 this.checkIfStatement(node);
 
                 break;
+
+
+            // ==================================
+            // WHILE
+            // ==================================
+
             case "WhileStatement":
 
                 this.checkWhileStatement(node);
 
                 break;
 
+
+            // ==================================
+            // PRINT
+            // ==================================
+
             case "PrintStatement":
 
-                this.checkExpression(node.value);
+                this.checkExpression(
+                    node.value
+                );
 
                 break;
+
+
+            // ==================================
+            // RETURN
+            // ==================================
 
             case "ReturnStatement":
 
@@ -308,6 +448,11 @@ class SemanticAnalyzer {
         }
 
     }
+
+
+    // ==========================================
+    // VARIABLE DECLARATION
+    // ==========================================
 
     checkDeclaration(node) {
 
@@ -363,6 +508,11 @@ class SemanticAnalyzer {
 
     }
 
+
+    // ==========================================
+    // ASSIGNMENT
+    // ==========================================
+
     checkAssignment(node) {
 
         const symbol =
@@ -378,7 +528,6 @@ class SemanticAnalyzer {
                 node.line || 0
             );
 
-
             this.checkExpression(
                 node.value
             );
@@ -388,11 +537,12 @@ class SemanticAnalyzer {
         }
 
 
-        if (symbol.kind === "function") {
+        if (
+            symbol.kind === "function"
+        ) {
 
             this.addError(
-                `'${node.identifier}' is a function ` +
-                `and cannot be assigned`,
+                `'${node.identifier}' is a function and cannot be assigned`,
                 node.line || 0
             );
 
@@ -417,8 +567,7 @@ class SemanticAnalyzer {
 
                 this.addError(
                     `Cannot assign '${valueType}' to ` +
-                    `'${symbol.type}' variable ` +
-                    `'${node.identifier}'`,
+                    `'${symbol.type}' variable '${node.identifier}'`,
                     node.line || 0
                 );
 
@@ -432,6 +581,11 @@ class SemanticAnalyzer {
         }
 
     }
+
+
+    // ==========================================
+    // IF
+    // ==========================================
 
     checkIfStatement(node) {
 
@@ -459,6 +613,11 @@ class SemanticAnalyzer {
 
     }
 
+
+    // ==========================================
+    // WHILE
+    // ==========================================
+
     checkWhileStatement(node) {
 
         this.checkExpression(
@@ -475,6 +634,11 @@ class SemanticAnalyzer {
         }
 
     }
+
+
+    // ==========================================
+    // RETURN
+    // ==========================================
 
     checkReturnStatement(node) {
 
@@ -539,24 +703,10 @@ class SemanticAnalyzer {
 
     }
 
-    checkIdentifier(node) {
 
-        const symbol =
-            this.symbolTable.lookup(
-                node.name
-            );
-
-
-        if (!symbol) {
-
-            this.addError(
-                `Variable '${node.name}' not declared`,
-                node.line || 0
-            );
-
-        }
-
-    }
+    // ==========================================
+    // FUNCTION CALL
+    // ==========================================
 
     checkFunctionCall(node) {
 
@@ -568,13 +718,90 @@ class SemanticAnalyzer {
             );
 
 
+        const argumentsList =
+            Array.isArray(node.arguments)
+                ? node.arguments
+                : [];
+
+
+        // ======================================
+        // BUILT-IN printf()
+        // ======================================
+
+        if (
+            functionName === "printf"
+        ) {
+
+            /*
+             * printf must have at least
+             * one argument: format string.
+             */
+
+            if (
+                argumentsList.length === 0
+            ) {
+
+                this.addError(
+                    "printf expects at least one argument",
+                    node.line || 0
+                );
+
+                return;
+
+            }
+
+
+            const formatArgument =
+                argumentsList[0];
+
+
+            if (
+                !formatArgument ||
+                formatArgument.type !==
+                    "Literal" ||
+                typeof formatArgument.value !==
+                    "string"
+            ) {
+
+                this.addError(
+                    "First argument of printf must be a string",
+                    node.line || 0
+                );
+
+            }
+
+
+            /*
+             * Check remaining arguments.
+             */
+
+            for (
+                let i = 1;
+                i < argumentsList.length;
+                i++
+            ) {
+
+                this.checkExpression(
+                    argumentsList[i]
+                );
+
+            }
+
+
+            return;
+
+        }
+
+
+        // ======================================
+        // USER FUNCTION
+        // ======================================
+
         const functionSymbol =
             this.symbolTable.lookup(
                 functionName
             );
 
-
-        // Function doesn't exist
 
         if (!functionSymbol) {
 
@@ -584,23 +811,17 @@ class SemanticAnalyzer {
             );
 
 
-            if (Array.isArray(node.arguments)) {
-
-                node.arguments.forEach(
-                    argument =>
-                        this.checkExpression(
-                            argument
-                        )
-                );
-
-            }
+            argumentsList.forEach(
+                argument =>
+                    this.checkExpression(
+                        argument
+                    )
+            );
 
             return;
 
         }
 
-
-        // Symbol exists but isn't function
 
         if (
             functionSymbol.kind !==
@@ -617,19 +838,17 @@ class SemanticAnalyzer {
         }
 
 
-        const argumentsList =
-            Array.isArray(node.arguments)
-                ? node.arguments
-                : [];
-
-
-       
+        /*
+         * Function parameters are stored
+         * in the scope immediately after
+         * the function's global scope.
+         */
 
         const allScopes =
             this.symbolTable.allScopes;
 
 
-        const functionScope =
+        const parameterScopeIndex =
             functionSymbol.scope + 1;
 
 
@@ -637,13 +856,15 @@ class SemanticAnalyzer {
 
 
         if (
-            functionScope <
+            parameterScopeIndex <
             allScopes.length
         ) {
 
             parameters =
                 Object.values(
-                    allScopes[functionScope]
+                    allScopes[
+                        parameterScopeIndex
+                    ]
                 ).filter(
                     symbol =>
                         symbol.kind ===
@@ -663,15 +884,14 @@ class SemanticAnalyzer {
             this.addError(
                 `Function '${functionName}' expects ` +
                 `${parameters.length} argument(s) ` +
-                `but got ` +
-                `${argumentsList.length}`,
+                `but got ${argumentsList.length}`,
                 node.line || 0
             );
 
         }
 
 
-        // Argument checks
+        // Argument types
 
         argumentsList.forEach(
             (argument, index) => {
@@ -714,13 +934,41 @@ class SemanticAnalyzer {
 
     }
 
+
+    // ==========================================
+    // IDENTIFIER
+    // ==========================================
+
+    checkIdentifier(node) {
+
+        const symbol =
+            this.symbolTable.lookup(
+                node.name
+            );
+
+
+        if (!symbol) {
+
+            this.addError(
+                `Variable '${node.name}' not declared`,
+                node.line || 0
+            );
+
+        }
+
+    }
+
+
+    // ==========================================
+    // EXPRESSION CHECK
+    // ==========================================
+
     checkExpression(node) {
 
         if (!node) return;
 
 
         switch (node.type) {
-
 
             case "Identifier":
 
@@ -768,12 +1016,22 @@ class SemanticAnalyzer {
 
     }
 
+
+    // ==========================================
+    // EXPRESSION TYPE
+    // ==========================================
+
     getExpressionType(node) {
 
         if (!node) return null;
 
 
         switch (node.type) {
+
+
+            // ----------------------------------
+            // LITERAL
+            // ----------------------------------
 
             case "Literal":
 
@@ -813,6 +1071,11 @@ class SemanticAnalyzer {
 
                 return null;
 
+
+            // ----------------------------------
+            // IDENTIFIER
+            // ----------------------------------
+
             case "Identifier": {
 
                 const symbol =
@@ -826,6 +1089,12 @@ class SemanticAnalyzer {
                     : null;
 
             }
+
+
+            // ----------------------------------
+            // FUNCTION CALL
+            // ----------------------------------
+
             case "CallExpression": {
 
                 const functionName =
@@ -834,6 +1103,18 @@ class SemanticAnalyzer {
                         node.callee &&
                         node.callee.name
                     );
+
+
+                // Built-in printf returns int
+
+                if (
+                    functionName ===
+                    "printf"
+                ) {
+
+                    return "int";
+
+                }
 
 
                 const symbol =
@@ -855,6 +1136,12 @@ class SemanticAnalyzer {
                 return null;
 
             }
+
+
+            // ----------------------------------
+            // BINARY
+            // ----------------------------------
+
             case "BinaryExpression": {
 
                 const leftType =
@@ -867,6 +1154,7 @@ class SemanticAnalyzer {
                     this.getExpressionType(
                         node.right
                     );
+
 
                 if (
                     node.operator === "==" ||
@@ -882,6 +1170,7 @@ class SemanticAnalyzer {
                     return "bool";
 
                 }
+
 
                 if (
                     node.operator === "+" ||
@@ -913,9 +1202,17 @@ class SemanticAnalyzer {
                 }
 
 
-                return leftType || rightType;
+                return (
+                    leftType ||
+                    rightType
+                );
 
             }
+
+
+            // ----------------------------------
+            // UNARY
+            // ----------------------------------
 
             case "UnaryExpression":
 
@@ -941,6 +1238,12 @@ class SemanticAnalyzer {
     }
 
 }
+
+
+// ==========================================
+// PUBLIC FUNCTION
+// ==========================================
+
 function analyzeSemantic(ast) {
 
     const analyzer =
@@ -949,6 +1252,11 @@ function analyzeSemantic(ast) {
     return analyzer.analyze();
 
 }
+
+
+// ==========================================
+// EXPORT
+// ==========================================
 
 module.exports = {
 
