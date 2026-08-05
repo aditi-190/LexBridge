@@ -4,8 +4,11 @@ function compile(req, res) {
 
     try {
 
-        const { code } = req.body;
+        const { code ,input} = req.body;
 
+console.log("Controller input =", input);
+
+const result = runCompiler(code, input);
         if (!code || !code.trim()) {
 
             return res.status(400).json({
@@ -15,7 +18,11 @@ function compile(req, res) {
 
         }
 
-        const result = runCompiler(code);
+        const result =
+    runCompiler(
+        code,
+        req.body.input || []
+    );
 
         return res.json(result);
 

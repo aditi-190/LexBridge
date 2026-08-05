@@ -1,72 +1,162 @@
+// ==========================================
+// TOKEN TYPES
+// ==========================================
+
 const TokenType = {
+
     KEYWORD: "KEYWORD",
+
     IDENTIFIER: "IDENTIFIER",
+
     INTEGER: "INTEGER",
+
     FLOAT: "FLOAT",
+
     STRING: "STRING",
+
     OPERATOR: "OPERATOR",
 
+
+    // Punctuation
+
     LPAREN: "LPAREN",
+
     RPAREN: "RPAREN",
+
     LBRACE: "LBRACE",
+
     RBRACE: "RBRACE",
+
     LBRACKET: "LBRACKET",
+
     RBRACKET: "RBRACKET",
+
     SEMICOLON: "SEMICOLON",
+
     COMMA: "COMMA",
 
+
+    // Preprocessor / header tokens
+
+    HASH: "HASH",
+
+    DOT: "DOT",
+
+
     EOF: "EOF"
+
 };
+
+
+// ==========================================
+// KEYWORDS
+// ==========================================
+
 const KEYWORDS = [
+
     "int",
+
     "float",
+
     "bool",
 
     "if",
+
     "else",
+
     "while",
+
     "print",
 
     "true",
+
     "false",
 
-    "return"
+    "return",
+
+    "include",
+
+    "for",
+    "do",
+    "scanf"
+
+
 ];
+
+
+// ==========================================
+// OPERATORS
+// ==========================================
+
 const OPERATORS = [
+
     "==",
+
     "!=",
+
     "<=",
+
     ">=",
+
     "&&",
+
     "||",
 
+
     "=",
+
     "+",
+
     "-",
+
     "*",
+
     "/",
+
     "%",
+
     "<",
+
     ">",
-    "!"
+
+    "!",
+    "&"
+
 ];
+
+
+// ==========================================
+// SINGLE CHARACTER PUNCTUATION
+// ==========================================
 
 const PUNCTUATION = {
 
     "(": TokenType.LPAREN,
+
     ")": TokenType.RPAREN,
 
     "{": TokenType.LBRACE,
+
     "}": TokenType.RBRACE,
 
     "[": TokenType.LBRACKET,
+
     "]": TokenType.RBRACKET,
 
     ";": TokenType.SEMICOLON,
-    ",": TokenType.COMMA
+
+    ",": TokenType.COMMA,
+
+    "#": TokenType.HASH,
+
+    ".": TokenType.DOT
 
 };
 
+
+// ==========================================
+// LEXER CLASS
+// ==========================================
 
 class Lexer {
 
@@ -86,17 +176,37 @@ class Lexer {
 
     }
 
+
+    // ======================================
+    // PEEK
+    // ======================================
+
     peek(offset = 0) {
 
-        return this.source[this.position + offset];
+        return this.source[
+            this.position + offset
+        ];
 
     }
+
+
+    // ======================================
+    // END CHECK
+    // ======================================
 
     isAtEnd() {
 
-        return this.position >= this.source.length;
+        return (
+            this.position >=
+            this.source.length
+        );
 
     }
+
+
+    // ======================================
+    // ADVANCE
+    // ======================================
 
     advance() {
 
@@ -106,9 +216,15 @@ class Lexer {
 
         }
 
-        const ch = this.source[this.position];
+
+        const ch =
+            this.source[
+                this.position
+            ];
+
 
         this.position++;
+
 
         if (ch === "\n") {
 
@@ -124,32 +240,79 @@ class Lexer {
 
         }
 
+
         return ch;
 
     }
+
+
+    // ======================================
+    // DIGIT CHECK
+    // ======================================
+
     isDigit(ch) {
 
-        return ch >= "0" && ch <= "9";
-
-    }
-
-    isLetter(ch) {
-
-        if (!ch) return false;
-
         return (
-            (ch >= "a" && ch <= "z") ||
-            (ch >= "A" && ch <= "Z") ||
-            ch === "_"
+            ch >= "0" &&
+            ch <= "9"
         );
 
     }
 
-    isLetterOrDigit(ch) {
 
-        return this.isLetter(ch) || this.isDigit(ch);
+    // ======================================
+    // LETTER CHECK
+    // ======================================
+
+    isLetter(ch) {
+
+        if (!ch) {
+
+            return false;
+
+        }
+
+
+        return (
+
+            (
+                ch >= "a" &&
+                ch <= "z"
+            )
+
+            ||
+
+            (
+                ch >= "A" &&
+                ch <= "Z"
+            )
+
+            ||
+
+            ch === "_"
+
+        );
 
     }
+
+
+    // ======================================
+    // LETTER OR DIGIT
+    // ======================================
+
+    isLetterOrDigit(ch) {
+
+        return (
+            this.isLetter(ch) ||
+            this.isDigit(ch)
+        );
+
+    }
+
+
+    // ======================================
+    // WHITESPACE + COMMENTS
+    // ======================================
 
     skipWhitespaceAndComments() {
 
@@ -157,12 +320,21 @@ class Lexer {
 
             const ch = this.peek();
 
-            // Spaces / tabs / newline
+
+            // ------------------------------
+            // Whitespace
+            // ------------------------------
+
             if (
+
                 ch === " " ||
+
                 ch === "\t" ||
+
                 ch === "\r" ||
+
                 ch === "\n"
+
             ) {
 
                 this.advance();
@@ -171,70 +343,107 @@ class Lexer {
 
             }
 
+
+            // ------------------------------
+            // Single line comment
+            // ------------------------------
+
             if (
+
                 ch === "/" &&
+
                 this.peek(1) === "/"
+
             ) {
 
                 this.advance();
+
                 this.advance();
 
+
                 while (
+
                     !this.isAtEnd() &&
+
                     this.peek() !== "\n"
+
                 ) {
 
                     this.advance();
 
                 }
 
+
                 continue;
 
             }
 
+
+            // ------------------------------
+            // Multi line comment
+            // ------------------------------
+
             if (
+
                 ch === "/" &&
+
                 this.peek(1) === "*"
+
             ) {
 
-                const startLine = this.line;
-                const startColumn = this.column;
+                const startLine =
+                    this.line;
+
+                const startColumn =
+                    this.column;
+
 
                 this.advance();
+
                 this.advance();
+
 
                 while (!this.isAtEnd()) {
 
                     if (
+
                         this.peek() === "*" &&
+
                         this.peek(1) === "/"
+
                     ) {
 
                         this.advance();
+
                         this.advance();
 
                         break;
 
                     }
 
+
                     this.advance();
 
                 }
 
-                // Unclosed comment
+
                 if (this.isAtEnd()) {
 
                     this.errors.push({
 
-                        message: "Unterminated comment",
+                        message:
+                            "Unterminated comment",
 
-                        line: startLine,
+                        line:
+                            startLine,
 
-                        column: startColumn
+                        column:
+                            startColumn
 
                     });
 
                 }
+
 
                 continue;
 
@@ -247,17 +456,29 @@ class Lexer {
 
     }
 
+
+    // ======================================
+    // SCAN NUMBER
+    // ======================================
+
     scanNumber() {
 
-        const start = this.position;
+        const start =
+            this.position;
 
         let isFloat = false;
 
 
         // Integer part
+
         while (
+
             !this.isAtEnd() &&
-            this.isDigit(this.peek())
+
+            this.isDigit(
+                this.peek()
+            )
+
         ) {
 
             this.advance();
@@ -266,18 +487,30 @@ class Lexer {
 
 
         // Decimal part
+
         if (
+
             this.peek() === "." &&
-            this.isDigit(this.peek(1))
+
+            this.isDigit(
+                this.peek(1)
+            )
+
         ) {
 
             isFloat = true;
 
             this.advance();
 
+
             while (
+
                 !this.isAtEnd() &&
-                this.isDigit(this.peek())
+
+                this.isDigit(
+                    this.peek()
+                )
+
             ) {
 
                 this.advance();
@@ -287,21 +520,24 @@ class Lexer {
         }
 
 
-        const value = this.source.slice(
-            start,
-            this.position
-        );
+        const value =
+            this.source.slice(
+                start,
+                this.position
+            );
 
 
         return {
 
-            type: isFloat
-                ? TokenType.FLOAT
-                : TokenType.INTEGER,
+            type:
+                isFloat
+                    ? TokenType.FLOAT
+                    : TokenType.INTEGER,
 
-            tokenName: isFloat
-                ? TokenType.FLOAT
-                : TokenType.INTEGER,
+            tokenName:
+                isFloat
+                    ? TokenType.FLOAT
+                    : TokenType.INTEGER,
 
             value
 
@@ -309,13 +545,25 @@ class Lexer {
 
     }
 
+
+    // ======================================
+    // SCAN IDENTIFIER / KEYWORD
+    // ======================================
+
     scanIdentifier() {
 
-        const start = this.position;
+        const start =
+            this.position;
+
 
         while (
+
             !this.isAtEnd() &&
-            this.isLetterOrDigit(this.peek())
+
+            this.isLetterOrDigit(
+                this.peek()
+            )
+
         ) {
 
             this.advance();
@@ -323,84 +571,189 @@ class Lexer {
         }
 
 
-        const text = this.source.slice(
-            start,
-            this.position
-        );
+        const text =
+            this.source.slice(
+                start,
+                this.position
+            );
 
 
-        if (KEYWORDS.includes(text)) {
+        // Keyword
+
+        if (
+            KEYWORDS.includes(text)
+        ) {
 
             return {
 
-                type: TokenType.KEYWORD,
+                type:
+                    TokenType.KEYWORD,
 
-                tokenName: TokenType.KEYWORD,
+                tokenName:
+                    TokenType.KEYWORD,
 
-                value: text
+                value:
+                    text
 
             };
 
         }
 
 
+        // Identifier
+
         return {
 
-            type: TokenType.IDENTIFIER,
+            type:
+                TokenType.IDENTIFIER,
 
-            tokenName: TokenType.IDENTIFIER,
+            tokenName:
+                TokenType.IDENTIFIER,
 
-            value: text
+            value:
+                text
 
         };
 
     }
 
 
+    // ======================================
+    // SCAN STRING
+    // ======================================
+
     scanString() {
 
-        const startLine = this.line;
+        const startLine =
+            this.line;
 
-        const startColumn = this.column;
+        const startColumn =
+            this.column;
 
-        this.advance(); // opening "
+
+        // Opening "
+
+        this.advance();
+
 
         let value = "";
 
+
         while (
+
             !this.isAtEnd() &&
+
             this.peek() !== '"'
+
         ) {
 
-            value += this.advance();
+            const ch =
+                this.advance();
+
+
+            // Basic escape handling
+
+            if (
+                ch === "\\" &&
+                !this.isAtEnd()
+            ) {
+
+                const next =
+                    this.peek();
+
+
+                if (
+                    next === "n"
+                ) {
+
+                    value += "\n";
+
+                    this.advance();
+
+                }
+
+                else if (
+                    next === "t"
+                ) {
+
+                    value += "\t";
+
+                    this.advance();
+
+                }
+
+                else if (
+                    next === '"'
+                ) {
+
+                    value += '"';
+
+                    this.advance();
+
+                }
+
+                else if (
+                    next === "\\"
+                ) {
+
+                    value += "\\";
+
+                    this.advance();
+
+                }
+
+                else {
+
+                    value += ch;
+
+                }
+
+            }
+
+            else {
+
+                value += ch;
+
+            }
 
         }
 
+
+        // Unterminated string
 
         if (this.isAtEnd()) {
 
             this.errors.push({
 
-                message: "Unterminated string",
+                message:
+                    "Unterminated string",
 
-                line: startLine,
+                line:
+                    startLine,
 
-                column: startColumn
+                column:
+                    startColumn
 
             });
+
 
             return null;
 
         }
 
 
-        this.advance(); // closing "
+        // Closing "
+
+        this.advance();
+
 
         return {
 
-            type: TokenType.STRING,
+            type:
+                TokenType.STRING,
 
-            tokenName: TokenType.STRING,
+            tokenName:
+                TokenType.STRING,
 
             value
 
@@ -409,30 +762,44 @@ class Lexer {
     }
 
 
+    // ======================================
+    // MATCH OPERATOR
+    // ======================================
+
     matchOperator() {
 
         // Longest match first
 
-        for (const op of OPERATORS) {
+        for (
+            const op of OPERATORS
+        ) {
 
             if (
+
                 this.source.startsWith(
                     op,
                     this.position
                 )
+
             ) {
 
-                this.position += op.length;
+                this.position +=
+                    op.length;
 
-                this.column += op.length;
+                this.column +=
+                    op.length;
+
 
                 return {
 
-                    type: TokenType.OPERATOR,
+                    type:
+                        TokenType.OPERATOR,
 
-                    tokenName: TokenType.OPERATOR,
+                    tokenName:
+                        TokenType.OPERATOR,
 
-                    value: op
+                    value:
+                        op
 
                 };
 
@@ -440,95 +807,127 @@ class Lexer {
 
         }
 
+
         return null;
 
     }
 
 
     // ======================================
-    // MAIN TOKENIZE FUNCTION
+    // MAIN TOKENIZE
     // ======================================
 
     tokenize() {
 
-        while (!this.isAtEnd()) {
+        while (
+            !this.isAtEnd()
+        ) {
 
+
+            // ------------------------------
             // Skip whitespace/comments
+            // ------------------------------
+
             this.skipWhitespaceAndComments();
 
-            if (this.isAtEnd()) {
+
+            if (
+                this.isAtEnd()
+            ) {
 
                 break;
 
             }
 
 
-            const startLine = this.line;
+            const startLine =
+                this.line;
 
-            const startColumn = this.column;
+            const startColumn =
+                this.column;
 
-            const ch = this.peek();
+
+            const ch =
+                this.peek();
+
 
             let token = null;
 
 
-            // --------------------------------
-            // Number
-            // --------------------------------
+            // ------------------------------
+            // NUMBER
+            // ------------------------------
 
-            if (this.isDigit(ch)) {
+            if (
+                this.isDigit(ch)
+            ) {
 
-                token = this.scanNumber();
-
-            }
-
-
-            // --------------------------------
-            // Identifier / Keyword
-            // --------------------------------
-
-            else if (this.isLetter(ch)) {
-
-                token = this.scanIdentifier();
+                token =
+                    this.scanNumber();
 
             }
 
 
-            // --------------------------------
-            // String
-            // --------------------------------
+            // ------------------------------
+            // IDENTIFIER / KEYWORD
+            // ------------------------------
 
-            else if (ch === '"') {
+            else if (
+                this.isLetter(ch)
+            ) {
 
-                token = this.scanString();
+                token =
+                    this.scanIdentifier();
 
             }
 
 
-            // --------------------------------
-            // Operator
-            // --------------------------------
+            // ------------------------------
+            // STRING
+            // ------------------------------
+
+            else if (
+                ch === '"'
+            ) {
+
+                token =
+                    this.scanString();
+
+            }
+
+
+            // ------------------------------
+            // OPERATOR
+            // ------------------------------
 
             else {
 
-                token = this.matchOperator();
+                token =
+                    this.matchOperator();
 
 
-                // --------------------------------
-                // Punctuation
-                // --------------------------------
+                // --------------------------
+                // PUNCTUATION
+                // --------------------------
 
-                if (!token && PUNCTUATION[ch]) {
+                if (
+                    !token &&
+                    PUNCTUATION[ch]
+                ) {
 
                     this.advance();
 
+
                     token = {
 
-                        type: PUNCTUATION[ch],
+                        type:
+                            PUNCTUATION[ch],
 
-                        tokenName: PUNCTUATION[ch],
+                        tokenName:
+                            PUNCTUATION[ch],
 
-                        value: ch
+                        value:
+                            ch
 
                     };
 
@@ -536,17 +935,26 @@ class Lexer {
 
             }
 
+
+            // ------------------------------
+            // INVALID CHARACTER
+            // ------------------------------
+
             if (!token) {
 
                 this.errors.push({
 
-                    message: `Invalid Character '${ch}'`,
+                    message:
+                        `Invalid Character '${ch}'`,
 
-                    line: startLine,
+                    line:
+                        startLine,
 
-                    column: startColumn
+                    column:
+                        startColumn
 
                 });
+
 
                 this.advance();
 
@@ -554,36 +962,50 @@ class Lexer {
 
             }
 
-            token.line = startLine;
 
-            token.column = startColumn;
+            // Add location
+
+            token.line =
+                startLine;
+
+            token.column =
+                startColumn;
 
 
-            this.tokens.push(token);
+            this.tokens.push(
+                token
+            );
 
         }
 
-        // EOF TOKEN
+
         this.tokens.push({
 
-            type: TokenType.EOF,
+            type:
+                TokenType.EOF,
 
-            tokenName: TokenType.EOF,
+            tokenName:
+                TokenType.EOF,
 
-            value: "EOF",
+            value:
+                "EOF",
 
-            line: this.line,
+            line:
+                this.line,
 
-            column: this.column
+            column:
+                this.column
 
         });
 
 
         return {
 
-            tokens: this.tokens,
+            tokens:
+                this.tokens,
 
-            errors: this.errors
+            errors:
+                this.errors
 
         };
 
@@ -591,10 +1013,10 @@ class Lexer {
 
 }
 
-// PUBLIC FUNCTION
 function tokenizeC(source) {
 
-    const lexer = new Lexer(source);
+    const lexer =
+        new Lexer(source);
 
     return lexer.tokenize();
 

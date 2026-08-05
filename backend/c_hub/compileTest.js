@@ -1,15 +1,30 @@
 const { compileC } = require("./compileC");
 
 const code = `
+#include <stdio.h>
+
+int add(int a, int b) {
+
+    return a + b;
+
+}
+
 int main() {
 
-    int a;
-    int b;
-    int c;
+    int i;
+    int result;
 
-    a = 5;
-    b = 10;
-    c = a + b * 2;
+    i = 1;
+
+    while (i <= 3) {
+
+        result = add(i, 10);
+
+        printf("Result = %d\\n", result);
+
+        i = i + 1;
+
+    }
 
     return 0;
 }
@@ -18,5 +33,9 @@ int main() {
 const result = compileC(code);
 
 console.log(
-    JSON.stringify(result, null, 2)
+    JSON.stringify(
+        result,
+        null,
+        2
+    )
 );

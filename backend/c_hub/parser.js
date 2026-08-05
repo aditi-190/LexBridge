@@ -10,6 +10,11 @@ class Parser {
 
     }
 
+
+    // ==========================================
+    // BASIC TOKEN HELPERS
+    // ==========================================
+
     peek() {
 
         return this.tokens[this.current];
@@ -40,21 +45,30 @@ class Parser {
 
     }
 
-   check(type, value = null) {
+    check(type, value = null) {
 
-    const token = this.peek();
+        const token = this.peek();
 
-    if (!token) return false;
+        if (!token) return false;
 
-    if (token.type !== type) return false;
+        if (token.type !== type) {
 
-    if (value !== null && token.value !== value) {
-        return false;
+            return false;
+
+        }
+
+        if (
+            value !== null &&
+            token.value !== value
+        ) {
+
+            return false;
+
+        }
+
+        return true;
+
     }
-
-    return true;
-
-}
 
     match(type, value = null) {
 
@@ -78,18 +92,27 @@ class Parser {
 
         }
 
+        const token = this.peek();
+
         this.errors.push({
 
             message,
 
-            line: this.peek().line,
-            column: this.peek().column
+            line: token ? token.line : 0,
+
+            column: token ? token.column : 0
 
         });
 
         return null;
 
     }
+
+
+    // ==========================================
+    // PARSE
+    // ==========================================
+
     parse() {
 
         const ast = this.parseProgram();
@@ -97,152 +120,301 @@ class Parser {
         return {
 
             ast,
+
             errors: this.errors
 
         };
 
     }
-        parseProgram() {
 
-    const body = [];
 
-    while (!this.isAtEnd()) {
+    // ==========================================
+    // PROGRAM
+    // ==========================================
 
-        body.push(this.parseFunction());
+    parseProgram() {
 
-    }
+        const body = [];
 
-    return {
+        while (!this.isAtEnd()) {
 
-        type: "Program",
+            // #include <stdio.h>
+            if (this.check(TokenType.HASH, "#")) {
 
-        body
+                body.push(
+                    this.parseInclude()
+                );
 
-    };
+                continue;
 
-}
-        parseFunction() {
+            }
 
-    const returnType = this.consume(
-        TokenType.KEYWORD,
-        "int",
-        "Expected return type"
-    );
-
-    const name = this.consume(
-        TokenType.IDENTIFIER,
-        null,
-        "Expected function name"
-    );
-
-    this.consume(
-        TokenType.LPAREN,
-        null,
-        "Expected '(' after function name"
-    );
-
-    const params = [];
-
-    if (!this.check(TokenType.RPAREN, null)) {
-
-        do {
-
-            const dataType = this.consume(
-                TokenType.KEYWORD,
-                null,
-                "Expected parameter type"
-            );
-
-            const identifier = this.consume(
-                TokenType.IDENTIFIER,
-                null,
-                "Expected parameter name"
-            );
-
-            params.push({
-
-                type: "Parameter",
-
-                dataType: dataType
-                    ? dataType.value
-                    : "",
-
-                name: identifier
-                    ? identifier.value
-                    : ""
-
-            });
-
-        } while (
-            this.match(
-                TokenType.COMMA,
-                null
-            )
-        );
-
-    }
-
-    this.consume(
-        TokenType.RPAREN,
-        null,
-        "Expected ')'"
-    );
-
-    const body = this.parseBlock();
-
-    return {
-
-        type:
-            name && name.value === "main"
-                ? "MainFunction"
-                : "FunctionDeclaration",
-
-        name:
-            name
-                ? name.value
-                : "",
-
-        returnType:
-            returnType
-                ? returnType.value
-                : "int",
-
-        params,
-
-        body
-
-    };
-
-}
-        parseBlock() {
-
-        this.consume(
-    TokenType.LBRACE,
-    null,
-    "Expected '{'"
-   );
-        
-
-        const statements = [];
-
-   while (
-    !this.check(TokenType.RBRACE, null) &&
-    !this.isAtEnd()
-) {
-
-            statements.push(
-
-                this.parseStatement()
-
+            body.push(
+                this.parseFunction()
             );
 
         }
 
-      this.consume(
-    TokenType.RBRACE,
-    null,
-    "Expected '}'"
-);
+        return {
+
+            type: "Program",
+
+            body
+
+        };
+
+    }
+
+
+    // ==========================================
+    // INCLUDE
+    // ==========================================
+
+    parseInclude() {
+
+        this.consume(
+            TokenType.HASH,
+            "#",
+            "Expected '#'"
+        );
+
+
+        this.consume(
+            TokenType.KEYWORD,
+            "include",
+            "Expected 'include'"
+        );
+
+
+        this.consume(
+            TokenType.OPERATOR,
+            "<",
+            "Expected '<' after include"
+        );
+
+
+        const headerParts = [];
+
+
+        // Read everything until >
+        while (
+            !this.check(
+                TokenType.OPERATOR,
+                ">"
+            ) &&
+            !this.isAtEnd()
+        ) {
+
+            const token = this.advance();
+
+            headerParts.push(
+                token.value
+            );
+
+        }
+
+
+        this.consume(
+            TokenType.OPERATOR,
+            ">",
+            "Expected '>' after header"
+        );
+
+
+        return {
+
+            type: "IncludeDirective",
+
+            header:
+                headerParts.join("")
+
+        };
+
+    }
+
+
+    // ==========================================
+    // FUNCTION
+    // ==========================================
+
+    parseFunction() {
+
+        const returnTypeToken =
+            this.consume(
+                TokenType.KEYWORD,
+                null,
+                "Expected return type"
+            );
+
+
+        const returnType =
+            returnTypeToken
+                ? returnTypeToken.value
+                : "int";
+
+
+        const name =
+            this.consume(
+                TokenType.IDENTIFIER,
+                null,
+                "Expected function name"
+            );
+
+
+        this.consume(
+            TokenType.LPAREN,
+            null,
+            "Expected '(' after function name"
+        );
+
+
+        const params = [];
+
+
+        if (
+            !this.check(
+                TokenType.RPAREN,
+                null
+            )
+        ) {
+
+            do {
+
+                const dataType =
+                    this.consume(
+                        TokenType.KEYWORD,
+                        null,
+                        "Expected parameter type"
+                    );
+
+
+                const identifier =
+                    this.consume(
+                        TokenType.IDENTIFIER,
+                        null,
+                        "Expected parameter name"
+                    );
+
+
+                params.push({
+
+                    type: "Parameter",
+
+                    dataType:
+                        dataType
+                            ? dataType.value
+                            : "int",
+
+                    name:
+                        identifier
+                            ? identifier.value
+                            : ""
+
+                });
+
+            } while (
+                this.match(
+                    TokenType.COMMA,
+                    null
+                )
+            );
+
+        }
+
+
+        this.consume(
+            TokenType.RPAREN,
+            null,
+            "Expected ')'"
+        );
+
+
+        const body =
+            this.parseBlock();
+
+
+        if (
+            name &&
+            name.value === "main"
+        ) {
+
+            return {
+
+                type: "MainFunction",
+
+                name: "main",
+
+                returnType,
+
+                params,
+
+                body
+
+            };
+
+        }
+
+
+        return {
+
+            type: "FunctionDeclaration",
+
+            name:
+                name
+                    ? name.value
+                    : "",
+
+            returnType,
+
+            params,
+
+            body
+
+        };
+
+    }
+
+
+    // ==========================================
+    // BLOCK
+    // ==========================================
+
+    parseBlock() {
+
+        this.consume(
+            TokenType.LBRACE,
+            null,
+            "Expected '{'"
+        );
+
+
+        const statements = [];
+
+
+        while (
+
+            !this.check(
+                TokenType.RBRACE,
+                null
+            ) &&
+
+            !this.isAtEnd()
+
+        ) {
+
+            statements.push(
+                this.parseStatement()
+            );
+
+        }
+
+
+        this.consume(
+            TokenType.RBRACE,
+            null,
+            "Expected '}'"
+        );
+
 
         return {
 
@@ -253,231 +425,344 @@ class Parser {
         };
 
     }
-    
 
-parseStatement() {
 
-    const token = this.peek();
+    // ==========================================
+    // STATEMENT
+    // ==========================================
 
-    if (
-        token.type === TokenType.KEYWORD &&
-        (
-            token.value === "int" ||
-            token.value === "float" ||
-            token.value === "bool"
-        )
-    ) {
+    parseStatement() {
 
-        return this.parseVariableDeclaration();
+        const token =
+            this.peek();
+
+
+        if (!token) {
+
+            return null;
+
+        }
+        // For Loop
+
+if (
+
+    token.type === TokenType.KEYWORD &&
+
+    token.value === "for"
+
+) {
+
+    return this.parseFor();
+
+}
+
+// Do While
+
+if (
+
+    token.type === TokenType.KEYWORD &&
+
+    token.value === "do"
+
+) {
+
+    return this.parseDoWhile();
+
+}
+// scanf
+
+if (
+
+    token.type === TokenType.KEYWORD &&
+
+    token.value === "scanf"
+
+) {
+
+    return this.parseScanf();
+
+}
+
+
+        // Variable declaration
+
+        if (
+
+            token.type === TokenType.KEYWORD &&
+
+            (
+                token.value === "int" ||
+                token.value === "float" ||
+                token.value === "bool"
+            )
+
+        ) {
+
+            return this.parseVariableDeclaration();
+
+        }
+
+
+        // Return
+
+        if (
+
+            token.type === TokenType.KEYWORD &&
+
+            token.value === "return"
+
+        ) {
+
+            return this.parseReturn();
+
+        }
+
+
+        // If
+
+        if (
+
+            token.type === TokenType.KEYWORD &&
+
+            token.value === "if"
+
+        ) {
+
+            return this.parseIf();
+
+        }
+
+
+        // While
+
+        if (
+
+            token.type === TokenType.KEYWORD &&
+
+            token.value === "while"
+
+        ) {
+
+            return this.parseWhile();
+
+        }
+
+
+        // Custom print
+
+        if (
+
+            token.type === TokenType.KEYWORD &&
+
+            token.value === "print"
+
+        ) {
+
+            return this.parsePrint();
+
+        }
+
+        if (
+    token.type === TokenType.KEYWORD &&
+    token.value === "scanf"
+) {
+
+    return this.parseScanf();
+
+}
+
+
+        if (
+            token.type === TokenType.IDENTIFIER
+        ) {
+
+            if (
+                this.checkNext(
+                    TokenType.LPAREN
+                )
+            ) {
+
+                return this.parseCallStatement();
+
+            }
+
+            return this.parseAssignment();
+
+        }
+
+
+        this.errors.push({
+
+            message: "Invalid Statement",
+
+            line: token.line,
+
+            column: token.column
+
+        });
+
+
+        this.advance();
+
+        return null;
 
     }
 
-    if (token.type === TokenType.IDENTIFIER) {
 
-        return this.parseAssignment();
+    // ==========================================
+    // CHECK NEXT TOKEN
+    // ==========================================
+
+    checkNext(type, value = null) {
+
+        const token =
+            this.tokens[
+                this.current + 1
+            ];
+
+
+        if (!token) {
+
+            return false;
+
+        }
+
+
+        if (token.type !== type) {
+
+            return false;
+
+        }
+
+
+        if (
+            value !== null &&
+            token.value !== value
+        ) {
+
+            return false;
+
+        }
+
+
+        return true;
 
     }
 
-    if (
-        token.type === TokenType.KEYWORD &&
-        token.value === "return"
-    ) {
 
-        return this.parseReturn();
+    // ==========================================
+    // FUNCTION CALL STATEMENT
+    // ==========================================
+
+    parseCallStatement() {
+
+        const expression =
+            this.parseExpression();
+
+
+        this.consume(
+            TokenType.SEMICOLON,
+            null,
+            "Missing ';' after function call"
+        );
+
+
+        return expression;
 
     }
-    if (token.type === TokenType.KEYWORD && token.value === "if") {
-    return this.parseIf();
-}
 
-if (token.type === TokenType.KEYWORD && token.value === "while") {
-    return this.parseWhile();
-}
 
-if (token.type === TokenType.KEYWORD && token.value === "print") {
-    return this.parsePrint();
-}
+    // ==========================================
+    // INCLUDE / PRINT
+    // ==========================================
 
-    this.errors.push({
+    parsePrint() {
 
-        message: "Invalid Statement",
+        this.consume(
+            TokenType.KEYWORD,
+            "print",
+            "Expected 'print'"
+        );
 
-        line: token.line,
-        column: token.column
 
-    });
+        const value =
+            this.parseExpression();
 
-    this.advance();
 
-    return null;
+        this.consume(
+            TokenType.SEMICOLON,
+            null,
+            "Missing ';' after print"
+        );
 
-}
-parseIf() {
 
-    // Consume "if"
+        return {
+
+            type: "PrintStatement",
+
+            value
+
+        };
+
+    }
+
+    // ==========================================
+// SCANF
+// ==========================================
+
+parseScanf() {
+
     this.consume(
         TokenType.KEYWORD,
-        "if",
-        "Expected 'if'"
+        "scanf",
+        "Expected scanf"
     );
 
-    // Consume "("
-   this.consume(
-    TokenType.LPAREN,
-    null,
-    "Expected '(' after 'if'"
-);
-    // Parse condition
-    const condition = this.parseExpression();
 
-    // Consume ")"
-   this.consume(
-    TokenType.RPAREN,
-    null,
-    "Expected ')' after condition"
-);
-
-    // Parse if body
-    const thenBranch = this.parseBlock();
-
-    let elseBranch = null;
-
-    // Check for else
-    if (this.match(TokenType.KEYWORD, "else")) {
-
-        elseBranch = this.parseBlock();
-
-    }
-
-    return {
-
-        type: "IfStatement",
-
-        condition,
-
-        thenBranch,
-
-        elseBranch
-
-    };
-
-}
-parseWhile() {
-
-    // Consume "while"
     this.consume(
-        TokenType.KEYWORD,
-        "while",
-        "Expected 'while'"
-    );
-this.consume(
-    TokenType.LPAREN,
-    null,
-    "Expected '(' after 'while'"
-);
-
-const condition = this.parseExpression();
-
-this.consume(
-    TokenType.RPAREN,
-    null,
-    "Expected ')' after condition"
-);
-   
-    // Parse loop body
-    const body = this.parseBlock();
-
-    return {
-
-        type: "WhileStatement",
-
-        condition,
-
-        body
-
-    };
-
-}
-parsePrint() {
-
-    // Consume "print"
-    this.consume(
-        TokenType.KEYWORD,
-        "print",
-        "Expected 'print'"
-    );
-
-    // Parse value/expression
-    const value = this.parseExpression();
-
-    // Consume ";"
-    this.consume(
-    TokenType.SEMICOLON,
-    null,
-    "Missing ';' after print"
-);
-
-    return {
-
-        type: "PrintStatement",
-
-        value
-
-    };
-
-}
-parseVariableDeclaration() {
-
-    const dataType = this.advance().value;
-
-    const identifier = this.consume(
-
-        TokenType.IDENTIFIER,
-
+        TokenType.LPAREN,
         null,
-
-        "Variable Name Expected"
-
+        "Expected '(' after scanf"
     );
 
-    let value = null;
 
-    if (this.match(TokenType.OPERATOR, "=")) {
+    // format string "%d"
+    const format =
+        this.advance();
 
-        value = this.parseExpression();
+
+    this.consume(
+        TokenType.COMMA,
+        null,
+        "Expected ',' after format"
+    );
+
+
+    // skip &
+    if(
+        this.match(
+            TokenType.OPERATOR,
+            "&"
+        )
+    ){
 
     }
 
-   this.consume(
-    TokenType.SEMICOLON,
-    null,
-    "Missing ';'"
-);
 
-    return {
+    const variable =
+        this.consume(
+            TokenType.IDENTIFIER,
+            null,
+            "Expected variable name"
+        );
 
-        type: "VariableDeclaration",
-
-        dataType,
-
-        identifier: identifier ? identifier.value : "",
-
-        value
-
-    };
-
-}
-parseAssignment() {
-
-    const identifier = this.advance().value;
 
     this.consume(
-        TokenType.OPERATOR,
-        "=",
-        "Expected '='"
+        TokenType.RPAREN,
+        null,
+        "Expected ')'"
     );
 
-    const value = this.parseExpression();
 
     this.consume(
         TokenType.SEMICOLON,
@@ -485,420 +770,1031 @@ parseAssignment() {
         "Missing ';'"
     );
 
+
     return {
 
-        type: "Assignment",
+        type:"ScanfStatement",
 
-        identifier,
-
-        value
+        variable:
+            variable.value
 
     };
 
 }
-parseExpression() {
 
-    return this.parseLogicalOr();
+    // ==========================================
+    // VARIABLE DECLARATION
+    // ==========================================
 
-}
+    parseVariableDeclaration() {
 
-// Logical OR: ||
-parseLogicalOr() {
+        const dataType =
+            this.advance().value;
 
-    let left = this.parseLogicalAnd();
 
-    while (this.check(TokenType.OPERATOR, "||")) {
-
-        const operator = this.advance().value;
-
-        const right = this.parseLogicalAnd();
-
-        left = {
-
-            type: "BinaryExpression",
-
-            operator,
-
-            left,
-
-            right
-
-        };
-
-    }
-
-    return left;
-
-}
-
-// Logical AND: &&
-parseLogicalAnd() {
-
-    let left = this.parseEquality();
-
-    while (this.check(TokenType.OPERATOR, "&&")) {
-
-        const operator = this.advance().value;
-
-        const right = this.parseEquality();
-
-        left = {
-
-            type: "BinaryExpression",
-
-            operator,
-
-            left,
-
-            right
-
-        };
-
-    }
-
-    return left;
-
-}
-
-// Equality: == !=
-parseEquality() {
-
-    let left = this.parseComparison();
-
-    while (
-        this.check(TokenType.OPERATOR, "==") ||
-        this.check(TokenType.OPERATOR, "!=")
-    ) {
-
-        const operator = this.advance().value;
-
-        const right = this.parseComparison();
-
-        left = {
-
-            type: "BinaryExpression",
-
-            operator,
-
-            left,
-
-            right
-
-        };
-
-    }
-
-    return left;
-
-}
-
-// Relational: < > <= >=
-parseComparison() {
-
-    let left = this.parseAddition();
-
-    while (
-        this.check(TokenType.OPERATOR, "<") ||
-        this.check(TokenType.OPERATOR, ">") ||
-        this.check(TokenType.OPERATOR, "<=") ||
-        this.check(TokenType.OPERATOR, ">=")
-    ) {
-
-        const operator = this.advance().value;
-
-        const right = this.parseAddition();
-
-        left = {
-
-            type: "BinaryExpression",
-
-            operator,
-
-            left,
-
-            right
-
-        };
-
-    }
-
-    return left;
-
-}
-
-// Arithmetic: + -
-parseAddition() {
-
-    let left = this.parseMultiplication();
-
-    while (
-        this.check(TokenType.OPERATOR, "+") ||
-        this.check(TokenType.OPERATOR, "-")
-    ) {
-
-        const operator = this.advance().value;
-
-        const right = this.parseMultiplication();
-
-        left = {
-
-            type: "BinaryExpression",
-
-            operator,
-
-            left,
-
-            right
-
-        };
-
-    }
-
-    return left;
-
-}
-
-// Arithmetic: * / %
-parseMultiplication() {
-
-    let left = this.parseUnary();
-
-    while (
-        this.check(TokenType.OPERATOR, "*") ||
-        this.check(TokenType.OPERATOR, "/") ||
-        this.check(TokenType.OPERATOR, "%")
-    ) {
-
-        const operator = this.advance().value;
-
-        const right = this.parseUnary();
-
-        left = {
-
-            type: "BinaryExpression",
-
-            operator,
-
-            left,
-
-            right
-
-        };
-
-    }
-
-    return left;
-
-}
-
-// Unary: !
-parseUnary() {
-
-    if (this.match(TokenType.OPERATOR, "!")) {
-
-        const operand = this.parseUnary();
-
-        return {
-
-            type: "UnaryExpression",
-
-            operator: "!",
-
-            operand
-
-        };
-
-    }
-
-    return this.parsePrimary();
-
-}
-
-// Primary expressions
-parsePrimary() {
-
-    const token = this.peek();
-
-    if (
-        token.type === TokenType.INTEGER ||
-        token.type === TokenType.FLOAT
-    ) {
-
-        this.advance();
-
-        return {
-
-            type: "Literal",
-
-            value: Number(token.value)
-
-        };
-
-    }
-
-    if (token.type === TokenType.STRING) {
-
-        this.advance();
-
-        return {
-
-            type: "Literal",
-
-            value: token.value
-
-        };
-
-    }
-    if (
-        token.type === TokenType.KEYWORD &&
-        token.value === "true"
-    ) {
-
-        this.advance();
-
-        return {
-
-            type: "Literal",
-
-            value: true
-
-        };
-
-    }
-
-    if (
-        token.type === TokenType.KEYWORD &&
-        token.value === "false"
-    ) {
-
-        this.advance();
-
-        return {
-
-            type: "Literal",
-
-            value: false
-
-        };
-
-    }
-
-    if (token.type === TokenType.IDENTIFIER) {
-
-        this.advance();
-
-        if (this.match(TokenType.LPAREN, null)) {
-
-            const args = [];
-
-
-            // No arguments
-            if (!this.check(TokenType.RPAREN, null)) {
-
-                do {
-
-                    args.push(
-                        this.parseExpression()
-                    );
-
-                } while (
-                    this.match(
-                        TokenType.COMMA,
-                        null
-                    )
-                );
-
-            }
-
-
+        const identifier =
             this.consume(
-                TokenType.RPAREN,
+                TokenType.IDENTIFIER,
                 null,
-                "Expected ')' after arguments"
+                "Variable Name Expected"
             );
 
 
-            return {
+        let value = null;
 
-                type: "CallExpression",
 
-                name: token.value,
+        if (
+            this.match(
+                TokenType.OPERATOR,
+                "="
+            )
+        ) {
 
-                arguments: args
+            value =
+                this.parseExpression();
+
+        }
+
+
+        this.consume(
+            TokenType.SEMICOLON,
+            null,
+            "Missing ';'"
+        );
+
+
+        return {
+
+            type: "VariableDeclaration",
+
+            dataType,
+
+            identifier:
+                identifier
+                    ? identifier.value
+                    : "",
+
+            value
+
+        };
+
+    }
+
+
+    // ==========================================
+    // ASSIGNMENT
+    // ==========================================
+
+    parseAssignment() {
+
+        const identifier =
+            this.advance().value;
+
+
+        this.consume(
+            TokenType.OPERATOR,
+            "=",
+            "Expected '='"
+        );
+
+
+        const value =
+            this.parseExpression();
+
+
+        if (
+    this.check(
+        TokenType.SEMICOLON,
+        null
+    )
+) {
+
+    this.advance();
+
+}
+
+        return {
+
+            type: "Assignment",
+
+            identifier,
+
+            value
+
+        };
+
+    }
+
+
+    // ==========================================
+    // IF
+    // ==========================================
+
+    parseIf() {
+
+        this.consume(
+            TokenType.KEYWORD,
+            "if",
+            "Expected 'if'"
+        );
+
+
+        this.consume(
+            TokenType.LPAREN,
+            null,
+            "Expected '(' after 'if'"
+        );
+
+
+        const condition =
+            this.parseExpression();
+
+
+        this.consume(
+            TokenType.RPAREN,
+            null,
+            "Expected ')' after condition"
+        );
+
+
+        const thenBranch =
+            this.parseBlock();
+
+
+        let elseBranch = null;
+
+
+        if (
+            this.match(
+                TokenType.KEYWORD,
+                "else"
+            )
+        ) {
+
+            elseBranch =
+                this.parseBlock();
+
+        }
+
+
+        return {
+
+            type: "IfStatement",
+
+            condition,
+
+            thenBranch,
+
+            elseBranch
+
+        };
+
+    }
+
+
+    // ==========================================
+    // WHILE
+    // ==========================================
+
+    parseWhile() {
+
+        this.consume(
+            TokenType.KEYWORD,
+            "while",
+            "Expected 'while'"
+        );
+
+
+        this.consume(
+            TokenType.LPAREN,
+            null,
+            "Expected '(' after 'while'"
+        );
+
+
+        const condition =
+            this.parseExpression();
+
+
+        this.consume(
+            TokenType.RPAREN,
+            null,
+            "Expected ')' after condition"
+        );
+
+
+        const body =
+            this.parseBlock();
+
+
+        return {
+
+            type: "WhileStatement",
+
+            condition,
+
+            body
+
+        };
+
+    }
+
+    // ==========================================
+// FOR LOOP
+// ==========================================
+
+parseFor() {
+
+
+    this.consume(
+        TokenType.KEYWORD,
+        "for",
+        "Expected 'for'"
+    );
+
+
+    this.consume(
+        TokenType.LPAREN,
+        null,
+        "Expected '(' after for"
+    );
+
+
+    // initialization
+    const initialization =
+        this.parseAssignment();
+
+
+    // condition
+
+    const condition =
+        this.parseExpression();
+
+
+    this.consume(
+        TokenType.SEMICOLON,
+        null,
+        "Expected ';' after condition"
+    );
+
+
+    // update
+
+    const update =
+        this.parseAssignment();
+
+
+    this.consume(
+        TokenType.RPAREN,
+        null,
+        "Expected ')' after for"
+    );
+
+
+    const body =
+        this.parseBlock();
+
+
+    return {
+
+        type: "ForStatement",
+
+        initialization,
+
+        condition,
+
+        update,
+
+        body
+
+    };
+
+}
+// ==========================================
+// DO WHILE
+// ==========================================
+
+parseDoWhile() {
+
+
+    this.consume(
+        TokenType.KEYWORD,
+        "do",
+        "Expected 'do'"
+    );
+
+
+    const body =
+        this.parseBlock();
+
+
+    this.consume(
+        TokenType.KEYWORD,
+        "while",
+        "Expected 'while' after do block"
+    );
+
+
+    this.consume(
+        TokenType.LPAREN,
+        null,
+        "Expected '(' after while"
+    );
+
+
+    const condition =
+        this.parseExpression();
+
+
+    this.consume(
+        TokenType.RPAREN,
+        null,
+        "Expected ')'"
+    );
+
+
+    this.consume(
+        TokenType.SEMICOLON,
+        null,
+        "Missing ';'"
+    );
+
+
+    return {
+
+        type: "DoWhileStatement",
+
+        body,
+
+        condition
+
+    };
+
+}
+
+    // ==========================================
+    // RETURN
+    // ==========================================
+
+    parseReturn() {
+
+        this.consume(
+            TokenType.KEYWORD,
+            "return",
+            "Expected 'return'"
+        );
+
+
+        let value = null;
+
+
+        if (
+            !this.check(
+                TokenType.SEMICOLON,
+                null
+            )
+        ) {
+
+            value =
+                this.parseExpression();
+
+        }
+
+
+        this.consume(
+            TokenType.SEMICOLON,
+            null,
+            "Missing ';'"
+        );
+
+
+        return {
+
+            type: "ReturnStatement",
+
+            value
+
+        };
+
+    }
+
+
+    // ==========================================
+    // EXPRESSION
+    // ==========================================
+
+    parseExpression() {
+
+        return this.parseLogicalOr();
+
+    }
+
+
+    // ==========================================
+    // LOGICAL OR
+    // ==========================================
+
+    parseLogicalOr() {
+
+        let left =
+            this.parseLogicalAnd();
+
+
+        while (
+            this.check(
+                TokenType.OPERATOR,
+                "||"
+            )
+        ) {
+
+            const operator =
+                this.advance().value;
+
+
+            const right =
+                this.parseLogicalAnd();
+
+
+            left = {
+
+                type: "BinaryExpression",
+
+                operator,
+
+                left,
+
+                right
 
             };
 
         }
 
-        return {
 
-            type: "Identifier",
-
-            name: token.value
-
-        };
+        return left;
 
     }
 
-    if (this.match(TokenType.LPAREN, null)) {
 
-        const expression =
-            this.parseExpression();
+    // ==========================================
+    // LOGICAL AND
+    // ==========================================
 
-        this.consume(
-            TokenType.RPAREN,
-            null,
-            "Expected ')'"
-        );
+    parseLogicalAnd() {
 
-        return expression;
+        let left =
+            this.parseEquality();
+
+
+        while (
+            this.check(
+                TokenType.OPERATOR,
+                "&&"
+            )
+        ) {
+
+            const operator =
+                this.advance().value;
+
+
+            const right =
+                this.parseEquality();
+
+
+            left = {
+
+                type: "BinaryExpression",
+
+                operator,
+
+                left,
+
+                right
+
+            };
+
+        }
+
+
+        return left;
 
     }
 
-    this.errors.push({
 
-        message: "Invalid Expression",
+    // ==========================================
+    // EQUALITY
+    // ==========================================
 
-        line: token.line,
+    parseEquality() {
 
-        column: token.column
+        let left =
+            this.parseComparison();
 
-    });
 
-    this.advance();
+        while (
 
-    return null;
+            this.check(
+                TokenType.OPERATOR,
+                "=="
+            ) ||
+
+            this.check(
+                TokenType.OPERATOR,
+                "!="
+            )
+
+        ) {
+
+            const operator =
+                this.advance().value;
+
+
+            const right =
+                this.parseComparison();
+
+
+            left = {
+
+                type: "BinaryExpression",
+
+                operator,
+
+                left,
+
+                right
+
+            };
+
+        }
+
+
+        return left;
+
+    }
+
+
+    // ==========================================
+    // COMPARISON
+    // ==========================================
+
+    parseComparison() {
+
+        let left =
+            this.parseAddition();
+
+
+        while (
+
+            this.check(
+                TokenType.OPERATOR,
+                "<"
+            ) ||
+
+            this.check(
+                TokenType.OPERATOR,
+                ">"
+            ) ||
+
+            this.check(
+                TokenType.OPERATOR,
+                "<="
+            ) ||
+
+            this.check(
+                TokenType.OPERATOR,
+                ">="
+            )
+
+        ) {
+
+            const operator =
+                this.advance().value;
+
+
+            const right =
+                this.parseAddition();
+
+
+            left = {
+
+                type: "BinaryExpression",
+
+                operator,
+
+                left,
+
+                right
+
+            };
+
+        }
+
+
+        return left;
+
+    }
+
+
+    // ==========================================
+    // ADDITION
+    // ==========================================
+
+    parseAddition() {
+
+        let left =
+            this.parseMultiplication();
+
+
+        while (
+
+            this.check(
+                TokenType.OPERATOR,
+                "+"
+            ) ||
+
+            this.check(
+                TokenType.OPERATOR,
+                "-"
+            )
+
+        ) {
+
+            const operator =
+                this.advance().value;
+
+
+            const right =
+                this.parseMultiplication();
+
+
+            left = {
+
+                type: "BinaryExpression",
+
+                operator,
+
+                left,
+
+                right
+
+            };
+
+        }
+
+
+        return left;
+
+    }
+
+
+    // ==========================================
+    // MULTIPLICATION
+    // ==========================================
+
+    parseMultiplication() {
+
+        let left =
+            this.parseUnary();
+
+
+        while (
+
+            this.check(
+                TokenType.OPERATOR,
+                "*"
+            ) ||
+
+            this.check(
+                TokenType.OPERATOR,
+                "/"
+            ) ||
+
+            this.check(
+                TokenType.OPERATOR,
+                "%"
+            )
+
+        ) {
+
+            const operator =
+                this.advance().value;
+
+
+            const right =
+                this.parseUnary();
+
+
+            left = {
+
+                type: "BinaryExpression",
+
+                operator,
+
+                left,
+
+                right
+
+            };
+
+        }
+
+
+        return left;
+
+    }
+
+
+    // ==========================================
+    // UNARY
+    // ==========================================
+
+    parseUnary() {
+
+        if (
+            this.match(
+                TokenType.OPERATOR,
+                "!"
+            )
+        ) {
+
+            const operand =
+                this.parseUnary();
+
+
+            return {
+
+                type: "UnaryExpression",
+
+                operator: "!",
+
+                operand
+
+            };
+
+        }
+
+
+        return this.parsePrimary();
+
+    }
+
+
+    // ==========================================
+    // PRIMARY
+    // ==========================================
+
+    parsePrimary() {
+
+        const token =
+            this.peek();
+
+
+        // INTEGER / FLOAT
+
+        if (
+
+            token.type ===
+                TokenType.INTEGER ||
+
+            token.type ===
+                TokenType.FLOAT
+
+        ) {
+
+            this.advance();
+
+
+            return {
+
+                type: "Literal",
+
+                value:
+                    Number(
+                        token.value
+                    )
+
+            };
+
+        }
+
+
+        // STRING
+
+        if (
+            token.type ===
+            TokenType.STRING
+        ) {
+
+            this.advance();
+
+
+            return {
+
+                type: "Literal",
+
+                value:
+                    token.value
+
+            };
+
+        }
+
+
+        // TRUE
+
+        if (
+
+            token.type ===
+            TokenType.KEYWORD &&
+
+            token.value === "true"
+
+        ) {
+
+            this.advance();
+
+
+            return {
+
+                type: "Literal",
+
+                value: true
+
+            };
+
+        }
+
+
+        // FALSE
+
+        if (
+
+            token.type ===
+            TokenType.KEYWORD &&
+
+            token.value === "false"
+
+        ) {
+
+            this.advance();
+
+
+            return {
+
+                type: "Literal",
+
+                value: false
+
+            };
+
+        }
+
+
+        // IDENTIFIER / FUNCTION CALL
+
+        if (
+            token.type ===
+            TokenType.IDENTIFIER
+        ) {
+
+            this.advance();
+
+
+            // Function call
+
+            if (
+                this.match(
+                    TokenType.LPAREN,
+                    null
+                )
+            ) {
+
+                const args = [];
+
+
+                if (
+                    !this.check(
+                        TokenType.RPAREN,
+                        null
+                    )
+                ) {
+
+                    do {
+
+                        args.push(
+                            this.parseExpression()
+                        );
+
+                    } while (
+                        this.match(
+                            TokenType.COMMA,
+                            null
+                        )
+                    );
+
+                }
+
+
+                this.consume(
+                    TokenType.RPAREN,
+                    null,
+                    "Expected ')' after arguments"
+                );
+
+
+                return {
+
+                    type:
+                        "CallExpression",
+
+                    name:
+                        token.value,
+
+                    arguments:
+                        args
+
+                };
+
+            }
+
+
+            // Normal identifier
+
+            return {
+
+                type:
+                    "Identifier",
+
+                name:
+                    token.value
+
+            };
+
+        }
+
+
+        // Parenthesized expression
+
+        if (
+            this.match(
+                TokenType.LPAREN,
+                null
+            )
+        ) {
+
+            const expression =
+                this.parseExpression();
+
+
+            this.consume(
+                TokenType.RPAREN,
+                null,
+                "Expected ')'"
+            );
+
+
+            return expression;
+
+        }
+
+
+        // Invalid expression
+
+        this.errors.push({
+
+            message:
+                "Invalid Expression",
+
+            line:
+                token.line,
+
+            column:
+                token.column
+
+        });
+
+
+        this.advance();
+
+        return null;
+
+    }
 
 }
-parseReturn() {
 
-    this.advance();
 
-    const value = this.parseExpression();
-
-   this.consume(
-    TokenType.SEMICOLON,
-    null,
-    "Missing ';'"
-);
-
-    return {
-
-        type: "ReturnStatement",
-
-        value
-
-  };
-}
- }
+// ==========================================
+// PUBLIC FUNCTION
+// ==========================================
 
 function parseC(tokens) {
 
-    const parser = new Parser(tokens);
+    const parser =
+        new Parser(tokens);
 
     return parser.parse();
 
 }
+
 
 module.exports = {
 
