@@ -1,449 +1,408 @@
-const lexer = require("./lexer");
-const AST = require("./ast");
-
-// Modifiers that Java allows before a class/field/method but that this
-// subset compiler does not need to enforce semantically. We consume and
-// discard them.
-const MODIFIER_KEYWORDS = ["public", "private", "protected", "static", "final"];
-
 class Parser {
     constructor(code) {
-        this.tokens = lexer(code);
-        this.current = 0;
+        this.code = code;
+        this.tokens = this.tokenize(code);
+        this.index = 0;
     }
 
-    currentToken() {
-        return this.tokens[this.current] || { type: "EOF", value: "EOF" };
-    }
+    tokenize(code) {
+        const tokenSpec = [
+            { type: "SPACE", regex: /^\s+/ },
+            { type: "COMMENT", regex: /^(\/\/[^\n]*|\/\*[\s\S]*?\*\/)/ },
+            { type: "KEYWORD", regex: /^(public|class|static|void|int|double|boolean|String|if|else|while|do|for|return|new|Scanner|import|break)\b/ },
+            { type: "IDENTIFIER", regex: /^[a-zA-Z_][a-zA-Z0-9_.]*/ },
+            { type: "NUMBER", regex: /^\d+(\.\d+)?/ },
+            { type: "STRING", regex: /^"[^"]*"/ },
+            { type: "OPERATOR", regex: /^(==|!=|<=|>=|&&|\|\||\+\+|--|\+|-|\*|\/|%|=|<|>)/ },
+            { type: "PUNCTUATION", regex: /^[{}(),;\[\]]/ }
+        ];
 
-    next() {
-        this.current++;
-    }
+        let tokens = [];
+        let cursor = 0;
 
-    match(type, value = null) {
-        const token = this.currentToken();
-        if (!token) return false;
-        if (value !== null) {
-            return token.type === type && token.value === value;
-        }
-        return token.type === type;
-    }
-
-    expect(type, value = null) {
-        const token = this.currentToken();
-        if (value !== null) {
-            if (token.type !== type || token.value !== value) {
-                throw new Error(
-                    `Expected '${value}' (${type}) but found '${token.value}' at line ${token.line}`
-                );
+        while (cursor < code.length) {
+            let matched = false;
+            for (const { type, regex } of tokenSpec) {
+                const match = code.slice(cursor).match(regex);
+                if (match) {
+                    matched = true;
+                    if (type !== "SPACE" && type !== "COMMENT") {
+                        tokens.push({ type, value: match[0] });
+                    }
+                    cursor += match[0].length;
+                    break;
+                }
             }
-        } else if (token.type !== type) {
-            throw new Error(
-                `Expected ${type} but found ${token.type} at line ${token.line}`
-            );
+            if (!matched) cursor++;
         }
-        this.next();
+        return tokens;
+    }
+
+    peek() {
+        return this.tokens[this.index] || null;
+    }
+
+    consume(expectedValue = null) {
+        const token = this.peek();
+        if (!token) throw new Error("Unexpected end of input");
+        if (expectedValue && token.value !== expectedValue) {
+            throw new Error(`Expected '${expectedValue}' but found '${token.value}'`);
+        }
+        this.index++;
         return token;
     }
 
-    // ------------------------------------------------------------------
-    // Java boilerplate helpers: "public class Test { public static void
-    // main(String[] args) { ... } }"
-    // ------------------------------------------------------------------
-
-    /**
-     * Consumes any run of modifier keywords (public/private/protected/
-     * static/final) at the current position without producing AST nodes.
-     */
-    skipModifiers() {
-        while (
-            this.match("KEYWORD") &&
-            MODIFIER_KEYWORDS.includes(this.currentToken().value)
-        ) {
-            this.next();
-        }
+    match(value) {
+        const token = this.peek();
+        return token && token.value === value;
     }
-
-    /**
-     * Lookahead (non-consuming): does the token stream, after skipping any
-     * modifiers, start a "class" declaration at the current position?
-     */
-    isClassStart() {
-        let idx = this.current;
-        while (
-            this.tokens[idx] &&
-            this.tokens[idx].type === "KEYWORD" &&
-            MODIFIER_KEYWORDS.includes(this.tokens[idx].value)
-        ) {
-            idx++;
-        }
-        return (
-            this.tokens[idx] &&
-            this.tokens[idx].type === "KEYWORD" &&
-            this.tokens[idx].value === "class"
-        );
-    }
-
-    /**
-     * Parses:  [modifiers] class ID { member* }
-     * Returns a FLAT ARRAY of statements/declarations meant to be spliced
-     * straight into the enclosing Program body. Specifically:
-     *   - a method named "main" has its body statements unwrapped directly
-     *     into the returned array (so `main`'s code executes as if it were
-     *     top-level code — this is what lets your subset interpreter run
-     *     standard Java entry points without any special-casing downstream).
-     *   - any other method becomes a normal FunctionDeclaration node.
-     *   - fields become normal VariableDeclaration nodes.
-     */
-    parseClassDeclaration() {
-        this.skipModifiers();
-        this.expect("KEYWORD", "class");
-        this.expect("IDENTIFIER"); // class name — not needed by this subset compiler
-        this.expect("LBRACE");
-
-        const collected = [];
-
-        while (!this.match("RBRACE") && !this.match("EOF")) {
-            this.skipModifiers();
-
-            const member = this.parseVariableOrFunctionDeclaration();
-
-            if (member.type === "FunctionDeclaration" && member.name === "main") {
-                // Unwrap main(...)'s body directly into the program.
-                collected.push(...member.body.statements);
-            } else {
-                collected.push(member);
-            }
-        }
-
-        this.expect("RBRACE");
-        return collected;
-    }
-
-    // ------------------------------------------------------------------
 
     parseProgram() {
+        while (this.peek() && this.peek().value === "import") {
+            while (this.peek() && this.peek().value !== ";") this.index++;
+            if (this.peek()) this.consume(";");
+        }
+
+        if (this.match("public") || this.match("class")) {
+            if (this.match("public")) this.consume("public");
+            this.consume("class");
+            this.consume(); 
+            this.consume("{");
+        }
+
         const body = [];
-        while (!this.match("EOF")) {
-            if (this.isClassStart()) {
-                const classStatements = this.parseClassDeclaration();
-                body.push(...classStatements);
-            } else {
-                body.push(this.parseStatement());
-            }
+        while (this.peek() && !this.match("}")) {
+            body.push(this.parseFunctionDeclaration());
         }
-        return AST.ProgramNode(body);
+
+        if (this.match("}")) this.consume("}");
+
+        return { type: "Program", body };
     }
 
-    parseStatement() {
-        const token = this.currentToken();
+    parseFunctionDeclaration() {
+        if (this.match("public")) this.consume("public");
+        if (this.match("static")) this.consume("static");
 
-        if (this.match("LBRACE")) {
-            return this.parseBlock();
-        }
+        const returnType = this.consume().value; 
+        const name = this.consume().value; 
 
-        if (token.type === "KEYWORD") {
-            switch (token.value) {
-                case "int":
-                case "float":
-                case "string":
-                case "String":
-                case "bool":
-                case "boolean":
-                case "void":
-                    return this.parseVariableOrFunctionDeclaration();
-
-                case "if":
-                    return this.parseIfStatement();
-
-                case "while":
-                    return this.parseWhileStatement();
-
-                case "for":
-                    return this.parseForStatement();
-
-                case "return":
-                    return this.parseReturnStatement();
-
-                case "print":
-                    return this.parsePrintStatement();
+        this.consume("(");
+        const params = [];
+        while (this.peek() && !this.match(")")) {
+            const pType = this.consume().value;
+            let pName = this.consume().value;
+            if (pName === "[" && this.match("]")) {
+                this.consume("]");
+                pName = this.consume().value;
             }
+            params.push({ dataType: pType, identifier: pName, name: pName });
+            if (this.match(",")) this.consume(",");
         }
+        this.consume(")");
 
-        if (token.type === "IDENTIFIER") {
-            return this.parseAssignmentOrFunctionCall();
-        }
-
-        throw new Error(`Unexpected token '${token.value}' at line ${token.line}`);
-    }
-
-    parseVariableOrFunctionDeclaration() {
-        const dataType = this.expect("KEYWORD").value;
-        const identifier = this.expect("IDENTIFIER").value;
-
-        if (this.match("LPAREN")) {
-            this.next(); // Consume '('
-            const params = [];
-
-            while (!this.match("RPAREN")) {
-                const paramType = this.expect("KEYWORD").value;
-
-                // Support Java-style array parameter types, e.g. String[] args.
-                // We don't model arrays downstream, so we just consume the
-                // brackets and keep the base type.
-                if (this.match("LBRACKET")) {
-                    this.next();
-                    this.expect("RBRACKET");
-                }
-
-                const paramName = this.expect("IDENTIFIER").value;
-                params.push({ dataType: paramType, identifier: paramName });
-
-                if (this.match("COMMA")) {
-                    this.next();
-                }
-            }
-            this.expect("RPAREN");
-
-            const body = this.parseBlock();
-            return AST.FunctionDeclarationNode(dataType, identifier, params, body);
-        }
-
-        let value = null;
-        if (this.match("OPERATOR", "=")) {
-            this.next();
-            value = this.parseExpression();
-        }
-
-        this.expect("SEMICOLON");
-        return AST.VariableDeclarationNode(dataType, identifier, value);
+        const body = this.parseBlock();
+        return { type: "FunctionDeclaration", name, returnType, params, body };
     }
 
     parseBlock() {
-        this.expect("LBRACE");
+        this.consume("{");
         const statements = [];
-
-        while (!this.match("RBRACE") && !this.match("EOF")) {
+        while (this.peek() && !this.match("}")) {
             statements.push(this.parseStatement());
         }
-
-        this.expect("RBRACE");
-        return AST.BlockNode(statements);
+        this.consume("}");
+        return { type: "Block", statements };
     }
 
-    parseIfStatement() {
-        this.expect("KEYWORD", "if");
-        this.expect("LPAREN");
-        const condition = this.parseExpression();
-        this.expect("RPAREN");
+    parseStatement() {
+        const token = this.peek();
+        if (!token) return null;
 
-        const thenBranch = this.parseStatement();
-        let elseBranch = null;
+        if (token.value === "{") return this.parseBlock();
 
-        if (this.match("KEYWORD", "else")) {
-            this.next();
-            elseBranch = this.parseStatement();
-        }
-
-        return AST.IfStatementNode(condition, thenBranch, elseBranch);
-    }
-
-    parseWhileStatement() {
-        this.expect("KEYWORD", "while");
-        this.expect("LPAREN");
-        const condition = this.parseExpression();
-        this.expect("RPAREN");
-
-        const body = this.parseStatement();
-        return AST.WhileStatementNode(condition, body);
-    }
-
-    parseForStatement() {
-        this.expect("KEYWORD", "for");
-        this.expect("LPAREN");
-
-        let init = null;
-        if (!this.match("SEMICOLON")) {
-            if (this.match("KEYWORD")) {
-                init = this.parseVariableOrFunctionDeclaration();
-            } else {
-                init = this.parseAssignmentOrFunctionCall();
+        if (token.value === "if") {
+            this.consume("if");
+            this.consume("(");
+            const condition = this.parseExpression();
+            this.consume(")");
+            const thenBranch = this.parseStatement();
+            let elseBranch = null;
+            if (this.match("else")) {
+                this.consume("else");
+                elseBranch = this.parseStatement();
             }
-        } else {
-            this.expect("SEMICOLON");
+            return { type: "IfStatement", condition, thenBranch, elseBranch };
         }
 
-        let condition = null;
-        if (!this.match("SEMICOLON")) {
-            condition = this.parseExpression();
+        if (token.value === "while") {
+            this.consume("while");
+            this.consume("(");
+            const condition = this.parseExpression();
+            this.consume(")");
+            const body = this.parseStatement();
+            return { type: "WhileStatement", condition, body };
         }
-        this.expect("SEMICOLON");
 
-        let update = null;
-        if (!this.match("RPAREN")) {
-            const identifier = this.expect("IDENTIFIER").value;
-            this.expect("OPERATOR", "=");
-            const value = this.parseExpression();
-            update = AST.AssignmentNode(identifier, value);
+        if (token.value === "do") {
+            this.consume("do");
+            const body = this.parseStatement();
+            this.consume("while");
+            this.consume("(");
+            const condition = this.parseExpression();
+            this.consume(")");
+            if (this.match(";")) this.consume(";");
+            return { type: "DoWhileStatement", body, condition };
         }
-        this.expect("RPAREN");
 
-        const body = this.parseStatement();
-        return AST.ForStatementNode(init, condition, update, body);
+        if (token.value === "for") {
+            this.consume("for");
+            this.consume("(");
+            let init = null;
+            if (!this.match(";")) init = this.parseStatementNoSemicolon();
+            this.consume(";");
+            let condition = null;
+            if (!this.match(";")) condition = this.parseExpression();
+            this.consume(";");
+            let update = null;
+            if (!this.match(")")) update = this.parseStatementNoSemicolon();
+            this.consume(")");
+            const body = this.parseStatement();
+            return { type: "ForStatement", init, condition, update, body };
+        }
+
+        if (token.value === "return") {
+            this.consume("return");
+            let value = null;
+            if (!this.match(";")) value = this.parseExpression();
+            if (this.match(";")) this.consume(";");
+            return { type: "ReturnStatement", value };
+        }
+
+        if (token.value === "Scanner") {
+            this.consume("Scanner");
+            this.consume(); 
+            this.consume("=");
+            this.consume("new");
+            this.consume("Scanner");
+            this.consume("(");
+            this.consume("System.in");
+            this.consume(")");
+            this.consume(";");
+            return { type: "ScannerInit" };
+        }
+
+        const stmt = this.parseStatementNoSemicolon();
+        if (this.match(";")) this.consume(";");
+        return stmt;
     }
 
-    parseReturnStatement() {
-        this.expect("KEYWORD", "return");
-        let value = null;
+    parseStatementNoSemicolon() {
+        const token = this.peek();
 
-        if (!this.match("SEMICOLON")) {
-            value = this.parseExpression();
-        }
-
-        this.expect("SEMICOLON");
-        return AST.ReturnStatementNode(value);
-    }
-
-    parsePrintStatement() {
-        this.expect("KEYWORD", "print");
-        this.expect("LPAREN");
-
-        const args = [];
-        if (!this.match("RPAREN")) {
-            args.push(this.parseExpression());
-            while (this.match("COMMA")) {
-                this.next();
-                args.push(this.parseExpression());
+        if (["int", "double", "boolean", "String"].includes(token.value)) {
+            const dataType = this.consume().value;
+            let isArray = false;
+            if (this.match("[")) {
+                this.consume("[");
+                this.consume("]");
+                isArray = true;
             }
-        }
+            const name = this.consume().value;
 
-        this.expect("RPAREN");
-        this.expect("SEMICOLON");
-
-        return AST.FunctionCallNode("print", args);
-    }
-
-    parseAssignmentOrFunctionCall() {
-        const identifier = this.expect("IDENTIFIER").value;
-
-        if (this.match("OPERATOR", "=")) {
-            this.next();
-            const value = this.parseExpression();
-            this.expect("SEMICOLON");
-            return AST.AssignmentNode(identifier, value);
-        }
-
-        if (this.match("LPAREN")) {
-            this.next();
-            const args = [];
-
-            if (!this.match("RPAREN")) {
-                args.push(this.parseExpression());
-                while (this.match("COMMA")) {
-                    this.next();
-                    args.push(this.parseExpression());
+            if (isArray) {
+                let size = null;
+                if (this.match("=")) {
+                    this.consume("=");
+                    this.consume("new");
+                    this.consume(); 
+                    this.consume("[");
+                    size = this.parseExpression();
+                    this.consume("]");
                 }
+                return { type: "ArrayDeclaration", dataType, identifier: name, name, size };
             }
 
-            this.expect("RPAREN");
-            this.expect("SEMICOLON");
-            return AST.FunctionCallNode(identifier, args);
+            let value = null;
+            if (this.match("=")) {
+                this.consume("=");
+                value = this.parseExpression();
+            }
+            return { type: "VariableDeclaration", dataType, identifier: name, name, value };
         }
 
-        throw new Error(`Invalid statement starting with '${identifier}'`);
+        if (token.type === "IDENTIFIER") {
+            const nextToken = this.tokens[this.index + 1];
+
+            if (nextToken && nextToken.value === "[") {
+                const name = this.consume().value;
+                this.consume("[");
+                const index = this.parseExpression();
+                this.consume("]");
+                this.consume("=");
+                const value = this.parseExpression();
+                return { type: "ArrayAssignment", name, identifier: name, index, value };
+            }
+
+            if (nextToken && (nextToken.value === "++" || nextToken.value === "--")) {
+                const name = this.consume().value;
+                const op = this.consume().value;
+                return { type: "UpdateExpression", identifier: name, name, operator: op };
+            }
+
+            if (nextToken && nextToken.value === "=") {
+                const name = this.consume().value;
+                this.consume("=");
+                const value = this.parseExpression();
+                return { type: "Assignment", identifier: name, name, value };
+            }
+
+            if (nextToken && nextToken.value === "(") {
+                return this.parseExpression();
+            }
+        }
+
+        return this.parseExpression();
     }
+
     parseExpression() {
-        return this.parseRelational();
+        return this.parseLogicalOr();
+    }
+
+    parseLogicalOr() {
+        let left = this.parseLogicalAnd();
+        while (this.match("||")) {
+            const op = this.consume().value;
+            const right = this.parseLogicalAnd();
+            left = { type: "BinaryExpression", operator: op, left, right };
+        }
+        return left;
+    }
+
+    parseLogicalAnd() {
+        let left = this.parseEquality();
+        while (this.match("&&")) {
+            const op = this.consume().value;
+            const right = this.parseEquality();
+            left = { type: "BinaryExpression", operator: op, left, right };
+        }
+        return left;
+    }
+
+    parseEquality() {
+        let left = this.parseRelational();
+        while (this.match("==") || this.match("!=")) {
+            const op = this.consume().value;
+            const right = this.parseRelational();
+            left = { type: "BinaryExpression", operator: op, left, right };
+        }
+        return left;
     }
 
     parseRelational() {
         let left = this.parseAdditive();
-
-        while (
-            this.match("OPERATOR") &&
-            ["==", "!=", "<", ">", "<=", ">="].includes(this.currentToken().value)
-        ) {
-            const operator = this.currentToken().value;
-            this.next();
+        while (this.match("<") || this.match(">") || this.match("<=") || this.match(">=")) {
+            const op = this.consume().value;
             const right = this.parseAdditive();
-            left = AST.BinaryExpressionNode(operator, left, right);
+            left = { type: "BinaryExpression", operator: op, left, right };
         }
-
         return left;
     }
 
     parseAdditive() {
         let left = this.parseMultiplicative();
-
-        while (
-            this.match("OPERATOR") &&
-            ["+", "-"].includes(this.currentToken().value)
-        ) {
-            const operator = this.currentToken().value;
-            this.next();
+        while (this.match("+") || this.match("-")) {
+            const op = this.consume().value;
             const right = this.parseMultiplicative();
-            left = AST.BinaryExpressionNode(operator, left, right);
+            left = { type: "BinaryExpression", operator: op, left, right };
         }
-
         return left;
     }
 
     parseMultiplicative() {
         let left = this.parsePrimary();
-
-        while (
-            this.match("OPERATOR") &&
-            ["*", "/"].includes(this.currentToken().value)
-        ) {
-            const operator = this.currentToken().value;
-            this.next();
+        while (this.match("*") || this.match("/") || this.match("%")) {
+            const op = this.consume().value;
             const right = this.parsePrimary();
-            left = AST.BinaryExpressionNode(operator, left, right);
+            left = { type: "BinaryExpression", operator: op, left, right };
         }
-
         return left;
     }
-    parsePrimary() {
-        const token = this.currentToken();
 
-        if (this.match("LPAREN")) {
-            this.next();
+    parsePrimary() {
+        const token = this.peek();
+
+        if (token.type === "NUMBER") {
+            return { type: "Literal", value: Number(this.consume().value), rawType: "NUMBER" };
+        }
+
+        if (token.type === "STRING") {
+            const strVal = this.consume().value.slice(1, -1);
+            return { type: "Literal", value: strVal, rawType: "STRING" };
+        }
+
+        if (token.value === "true" || token.value === "false") {
+            return { type: "Literal", value: this.consume().value === "true", rawType: "BOOLEAN" };
+        }
+
+        if (token.value === "(") {
+            this.consume("(");
             const expr = this.parseExpression();
-            this.expect("RPAREN");
+            this.consume(")");
             return expr;
         }
 
-        if (token.type === "INTEGER" || token.type === "FLOAT") {
-            this.next();
-            return AST.LiteralNode(Number(token.value), token.type);
-        }
-
-        if (token.type === "STRING" || token.type === "BOOLEAN") {
-            this.next();
-            return AST.LiteralNode(token.value, token.type);
-        }
-
         if (token.type === "IDENTIFIER") {
-            const name = token.value;
-            this.next();
-            if (this.match("LPAREN")) {
-                this.next();
+            const nextToken = this.tokens[this.index + 1];
+
+            if (nextToken && nextToken.value === "(") {
+                const name = this.consume().value;
+                this.consume("(");
                 const args = [];
-                if (!this.match("RPAREN")) {
+                while (this.peek() && !this.match(")")) {
                     args.push(this.parseExpression());
-                    while (this.match("COMMA")) {
-                        this.next();
-                        args.push(this.parseExpression());
-                    }
+                    if (this.match(",")) this.consume(",");
                 }
-                this.expect("RPAREN");
-                return AST.FunctionCallNode(name, args);
+                this.consume(")");
+                return { type: "FunctionCall", name, arguments: args };
             }
 
-            return AST.IdentifierNode(name);
+            if (nextToken && nextToken.value === "[") {
+                const name = this.consume().value;
+                this.consume("[");
+                const index = this.parseExpression();
+                this.consume("]");
+                return { type: "ArrayAccess", name, identifier: name, index };
+            }
+
+            if (nextToken && nextToken.value === ".") {
+                const obj = this.consume().value;
+                this.consume(".");
+                const method = this.consume().value;
+                if (method.startsWith("next") || method === "nextInt") {
+                    this.consume("(");
+                    this.consume(")");
+                    return { type: "ScannerRead", scanner: obj };
+                }
+                const fullName = `${obj}.${method}`;
+                if (this.match("(")) {
+                    this.consume("(");
+                    const args = [];
+                    while (this.peek() && !this.match(")")) {
+                        args.push(this.parseExpression());
+                        if (this.match(",")) this.consume(",");
+                    }
+                    this.consume(")");
+                    return { type: "FunctionCall", name: fullName, arguments: args };
+                }
+                return { type: "Identifier", name: fullName, identifier: fullName };
+            }
+
+            const name = this.consume().value;
+            return { type: "Identifier", name, identifier: name };
         }
 
-        throw new Error(`Unexpected expression token '${token.value}' at line ${token.line}`);
+        throw new Error(`Unexpected token '${token.value}'`);
     }
 }
 

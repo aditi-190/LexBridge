@@ -1,7 +1,7 @@
 const compileJava = require("../java_hub/compileJava");
 
 exports.compileJavaCode = (req, res) => {
-    const { code } = req.body;
+    const { code, input } = req.body;
 
     if (!code || typeof code !== "string" || !code.trim()) {
         return res.status(400).json({
@@ -13,7 +13,7 @@ exports.compileJavaCode = (req, res) => {
     }
 
     try {
-        const result = compileJava(code);
+        const result = compileJava(code, input);
 
         if (result && result.success) {
             return res.status(200).json({

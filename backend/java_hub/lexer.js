@@ -115,6 +115,35 @@ function lexer(code) {
             continue;
         }
 
+        // char literal: 'x' (single-quoted, exactly one character)
+        if (char === "'") {
+            let startColumn = column;
+            i++;
+            column++;
+            let text = "";
+
+            while (i < code.length && code[i] !== "'") {
+                text += code[i];
+                i++;
+                column++;
+            }
+
+            if (i >= code.length) {
+                throw new Error(`Unterminated char literal at line ${line}`);
+            }
+
+            i++; // consume closing quote
+            column++;
+
+            tokens.push({
+                type: tokenTypes.CHAR,
+                value: text,
+                line,
+                column: startColumn
+            });
+            continue;
+        }
+
         if (char === "/" && code[i + 1] === "/") {
             while (i < code.length && code[i] !== "\n") {
                 i++;
@@ -191,6 +220,14 @@ function lexer(code) {
                 break;
             case ",":
                 tokens.push({ type: tokenTypes.COMMA, value: ",", line, column });
+                break;
+            // NEW: DOT for System.out.println / System.out.print
+            case ".":
+                tokens.push({ type: tokenTypes.DOT, value: ".", line, column });
+                break;
+            // NEW: COLON for switch-case ("case 1:" / "default:")
+            case ":":
+                tokens.push({ type: tokenTypes.COLON, value: ":", line, column });
                 break;
             default:
                 throw new Error(`Unexpected character '${char}' at line ${line}, column ${column}`);

@@ -1,18 +1,9 @@
-// executor.js
-
-
 function executor(ast, input = ""){
-
-
     let variables = {};
 
     let functions = {};
 
     let output = [];
-
-
-
-
 
     function executeProgram(statements){
 
@@ -25,20 +16,9 @@ function executor(ast, input = ""){
 
 
     }
-
-
-
-
-
-
-
     function execute(node){
-
-
         if(!node)
             return null;
-
-
 
         switch(node.type){
 
@@ -52,59 +32,25 @@ function executor(ast, input = ""){
 
 
                 break;
-
-
-
-
-
-
-
-            case "Assignment":
+          case "Assignment":
 
 
                 variables[node.name] =
                 evaluate(node.value);
 
-
                 break;
-
-
-
-
-
-
-
             case "Print":
-
 
                 output.push(
                     evaluate(node.expression)
                 );
-
-
                 break;
-
-
-
-
-
-
-
             case "BinaryExpression":
 
 
                 return evaluate(node);
 
-
-
-
-
-
-
-
             case "If":
-
-
                 if(
                     evaluate(node.condition)
                 ){
@@ -125,14 +71,6 @@ function executor(ast, input = ""){
 
 
                 break;
-
-
-
-
-
-
-
-
             case "While":
 
 
@@ -148,15 +86,6 @@ function executor(ast, input = ""){
 
 
                 break;
-
-
-
-
-
-
-
-
-
             case "For":
 
 
@@ -182,19 +111,7 @@ function executor(ast, input = ""){
 
 
                 }
-
-
-
                 break;
-
-
-
-
-
-
-
-
-
             case "Increment":
 
 
@@ -202,15 +119,6 @@ function executor(ast, input = ""){
 
 
                 break;
-
-
-
-
-
-
-
-
-
             case "Function":
 
 
@@ -229,14 +137,6 @@ function executor(ast, input = ""){
 
                 break;
 
-
-
-
-
-
-
-
-
             case "FunctionCall":
 
 
@@ -249,21 +149,9 @@ function executor(ast, input = ""){
 
                 return evaluate(node.value);
 
-
-
         }
 
-
-
     }
-
-
-
-
-
-
-
-
 
     function callFunction(node){
 
@@ -481,23 +369,9 @@ function executor(ast, input = ""){
 
 
     }
-
-
-
-
-
-
-
-    executeProgram(ast);
-
-
-
-    return output.join("\n");
+executeProgram(ast);
+return output.join("\n");
 
 
 }
-
-
-
-
 module.exports = executor;

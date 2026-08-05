@@ -1,6 +1,4 @@
 // intermediateCode.js
-
-
 function generateIntermediateCode(ast){
 
 
@@ -8,25 +6,16 @@ function generateIntermediateCode(ast){
 
     let tempCount = 1;
 
-
-
     function newTemp(){
 
         return "t" + tempCount++;
 
     }
-
-
-
-
     function generate(node){
 
 
         if(!node)
             return;
-
-
-
         switch(node.type){
 
 
@@ -73,12 +62,6 @@ function generateIntermediateCode(ast){
 
                 break;
 
-
-
-
-
-
-
             case "Assignment":
 
 
@@ -94,14 +77,6 @@ function generateIntermediateCode(ast){
 
 
                 break;
-
-
-
-
-
-
-
-
             case "Print":
 
 
@@ -117,13 +92,6 @@ function generateIntermediateCode(ast){
 
 
                 break;
-
-
-
-
-
-
-
             case "For":
 
 
@@ -159,14 +127,6 @@ function generateIntermediateCode(ast){
 
 
                 break;
-
-
-
-
-
-
-
-
             case "Function":
 
 
@@ -189,12 +149,6 @@ function generateIntermediateCode(ast){
 
                 break;
 
-
-
-
-
-
-
             case "Return":
 
 
@@ -206,20 +160,10 @@ function generateIntermediateCode(ast){
 
 
                 break;
-
-
-
         }
 
 
     }
-
-
-
-
-
-
-
     function generateExpression(expr){
 
 
@@ -235,20 +179,13 @@ function generateIntermediateCode(ast){
 
         }
 
-
-
-
         if(expr.type==="Identifier"){
 
             return expr.value;
 
         }
 
-
-
-
-
-        if(expr.type==="BinaryExpression"){
+      if(expr.type==="BinaryExpression"){
 
 
 
@@ -284,20 +221,11 @@ function generateIntermediateCode(ast){
 
     }
 
-
-
-
-
-
     ast.forEach(generate);
 
 
 
     return instructions;
-
-
 }
-
-
 
 module.exports = generateIntermediateCode;

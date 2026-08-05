@@ -49,7 +49,7 @@ class TargetCodeGenerator {
             return;
         }
 
-        if (["+", "-", "*", "/"].includes(op)) {
+        if (["+", "-", "*", "/", "%"].includes(op)) {
             this.emit(`    MOV EAX, ${this.formatOperand(arg1)}`);
             if (op === "+") this.emit(`    ADD EAX, ${this.formatOperand(arg2)}`);
             if (op === "-") this.emit(`    SUB EAX, ${this.formatOperand(arg2)}`);
@@ -57,6 +57,13 @@ class TargetCodeGenerator {
             if (op === "/") {
                 this.emit(`    CDQ`);
                 this.emit(`    IDIV ${this.formatOperand(arg2)}`);
+            }
+            // FIX: '%' fell into this block via the includes() check above
+            // but had no emit branch, silently producing no instruction.
+            if (op === "%") {
+                this.emit(`    CDQ`);
+                this.emit(`    IDIV ${this.formatOperand(arg2)}`);
+                this.emit(`    MOV EAX, EDX`); // remainder lives in EDX after IDIV
             }
             this.emit(`    MOV [${result}], EAX`);
             return;
@@ -73,6 +80,17 @@ class TargetCodeGenerator {
             if (op === "==") this.lastJumpCondition = "JNE";
             if (op === "!=") this.lastJumpCondition = "JE";
 
+            return;
+        }
+
+        // FIX: && / || had no assembly translation at all (fell through
+        // to nothing being emitted), leaving the "assembly" output
+        // silently missing instructions for any boolean-logic expression.
+        if (op === "&&" || op === "||") {
+            this.emit(`    MOV EAX, ${this.formatOperand(arg1)}`);
+            this.emit(`    MOV EBX, ${this.formatOperand(arg2)}`);
+            this.emit(op === "&&" ? `    AND EAX, EBX` : `    OR EAX, EBX`);
+            this.emit(`    MOV [${result}], EAX`);
             return;
         }
 
@@ -103,6 +121,32 @@ class TargetCodeGenerator {
         if (op === "RETURN") {
             this.emit(`    MOV EAX, ${this.formatOperand(arg1)}`);
             this.emit(`    RET`);
+            return;
+        }
+
+        // ── NEW: array ops ─────────────────────────────────────────
+        if (op === "ARR_DECL") {
+            this.emit(`    ; array ${result} declared, size ${arg1}`);
+            return;
+        }
+
+        if (op === "ARR_INIT_ELEM") {
+            this.emit(`    MOV EAX, ${this.formatOperand(arg2)}`);
+            this.emit(`    MOV [${result}+${arg1}*4], EAX`);
+            return;
+        }
+
+        if (op === "ARR_SET") {
+            this.emit(`    MOV EAX, ${this.formatOperand(result)}`);
+            this.emit(`    MOV EBX, ${this.formatOperand(arg2)}`);
+            this.emit(`    MOV [${arg1}+EBX*4], EAX`);
+            return;
+        }
+
+        if (op === "ARR_GET") {
+            this.emit(`    MOV EBX, ${this.formatOperand(arg2)}`);
+            this.emit(`    MOV EAX, [${arg1}+EBX*4]`);
+            this.emit(`    MOV [${result}], EAX`);
             return;
         }
     }

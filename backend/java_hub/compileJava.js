@@ -1,172 +1,323 @@
-const lexer = require("./lexer");
 const Parser = require("./parser");
 const SemanticAnalyzer = require("./semanticAnalyzer");
 const TACGenerator = require("./tacGenerator");
-const Optimizer = require("./optimizer");
-const TargetCodeGenerator = require("./targetCodeGenerator");
 
-/**
- * Executes TAC instructions (object form: {op, arg1, arg2, result}) and
- * returns the real runtime output as a string. No fabricated fallback —
- * a program that never calls print() legitimately returns "".
- */
-function executeTAC(tacInstructions) {
-    try {
-        if (!Array.isArray(tacInstructions)) return "";
+function executeTAC(instructions, rawInput = "") {
+    const arrays = {};
+    const output = [];
+    const labels = {};
+    
+    const inputTokens = rawInput.trim().split(/\s+/).filter(Boolean);
+    let inputIndex = 0;
 
-        const memory = {};
-        const outputLogs = [];
-        const pendingParams = []; // supports multi-argument calls, e.g. print(a, b)
-
-        const getValue = (val) => {
-            if (val === undefined || val === null) return "";
-            const strVal = String(val).trim();
-
-            if (strVal.startsWith('"') && strVal.endsWith('"')) {
-                return strVal.slice(1, -1);
-            }
-            if (strVal !== "" && !isNaN(strVal)) {
-                return Number(strVal);
-            }
-            // Otherwise treat it as a variable/temp name and look it up.
-            return memory[strVal] !== undefined ? memory[strVal] : strVal;
-        };
-
-        for (const instr of tacInstructions) {
-            if (!instr) continue;
-            const { op, arg1, arg2, result } = instr;
-
-            switch (op) {
-                case "=":
-                    memory[result] = getValue(arg1);
-                    break;
-
-                case "+":
-                    memory[result] = Number(getValue(arg1)) + Number(getValue(arg2));
-                    break;
-
-                case "-":
-                    memory[result] = Number(getValue(arg1)) - Number(getValue(arg2));
-                    break;
-
-                case "*":
-                    memory[result] = Number(getValue(arg1)) * Number(getValue(arg2));
-                    break;
-
-                case "/":
-                    memory[result] = Number(getValue(arg1)) / Number(getValue(arg2));
-                    break;
-
-                case "==":
-                    memory[result] = getValue(arg1) == getValue(arg2) ? 1 : 0;
-                    break;
-
-                case "!=":
-                    memory[result] = getValue(arg1) != getValue(arg2) ? 1 : 0;
-                    break;
-
-                case "<":
-                    memory[result] = Number(getValue(arg1)) < Number(getValue(arg2)) ? 1 : 0;
-                    break;
-
-                case ">":
-                    memory[result] = Number(getValue(arg1)) > Number(getValue(arg2)) ? 1 : 0;
-                    break;
-
-                case "<=":
-                    memory[result] = Number(getValue(arg1)) <= Number(getValue(arg2)) ? 1 : 0;
-                    break;
-
-                case ">=":
-                    memory[result] = Number(getValue(arg1)) >= Number(getValue(arg2)) ? 1 : 0;
-                    break;
-
-                case "DECLARE":
-                    // int a; -> give it a sane default so later reads don't
-                    // resolve to the identifier's own name (NaN city).
-                    if (memory[result] === undefined) {
-                        memory[result] = arg1 === "string" ? "" : 0;
-                    }
-                    break;
-
-                case "PARAM":
-                    pendingParams.push(getValue(arg1));
-                    break;
-
-                case "CALL":
-                    if (arg1 === "print") {
-                        outputLogs.push(pendingParams.join(" "));
-                    }
-                    pendingParams.length = 0; // reset for the next call
-                    break;
-
-                // LABEL, GOTO, IFFALSE, PARAM_DECL, END_FUNC, RETURN:
-                // not needed for straight-line execution of the simple
-                // programs this interpreter targets; safely ignored.
-                default:
-                    break;
+    function readInput() {
+        if (inputIndex < inputTokens.length) {
+            return inputTokens[inputIndex++];
+        }
+        return "0";
+    }
+    const functionInfo = {};
+    for (let i = 0; i < instructions.length; i++) {
+        const inst = instructions[i];
+        if (inst.op === "LABEL") {
+            labels[inst.result] = i;
+            if (instructions[i + 1] && instructions[i + 1].op === "PARAM_DECL") {
+                const params = [];
+                let pIndex = i + 1;
+                while (pIndex < instructions.length && instructions[pIndex].op === "PARAM_DECL") {
+                    params.push(instructions[pIndex].result);
+                    pIndex++;
+                }
+                functionInfo[inst.result] = { labelPc: i, params };
             }
         }
-
-        return outputLogs.join("\n");
-    } catch (e) {
-        return "";
     }
-}
 
-function compileJava(sourceCode) {
-    const response = {
-        success: false,
-        tokens: [],
-        ast: null,
-        semantic: { isValid: false, errors: [] },
-        tac: [],
-        optimizedTac: [],
-        targetCode: "",
-        output: "",
-        error: null
+    let pc = 0;
+    let stepCount = 0;
+    const MAX_STEPS = 100000;
+    let paramStack = [];
+    const callStack = [];
+    let currentEnv = {};
+
+    const getVal = (val, env) => {
+        if (val === "" || val === undefined) return undefined;
+        if (typeof val === "string" && val.startsWith('"') && val.endsWith('"')) {
+            return val.slice(1, -1);
+        }
+        if (typeof val === "number") return val;
+        if (typeof val === "string" && val.trim() !== "" && !isNaN(Number(val))) {
+            return Number(val);
+        }
+        if (val === "true") return true;
+        if (val === "false") return false;
+        return env[val] !== undefined ? env[val] : 0;
     };
 
-    try {
-        response.tokens = lexer(sourceCode);
+    while (pc < instructions.length) {
+        if (stepCount++ > MAX_STEPS) {
+            output.push("Error: Maximum execution steps exceeded!");
+            break;
+        }
 
-        const parser = new Parser(sourceCode);
+        const inst = instructions[pc];
+        const { op, arg1, arg2, result } = inst;
+
+        switch (op) {
+            case "=":
+                currentEnv[result] = getVal(arg1, currentEnv);
+                pc++;
+                break;
+
+            case "+": {
+                const left = getVal(arg1, currentEnv);
+                const right = getVal(arg2, currentEnv);
+                if (typeof left === "string" || typeof right === "string") {
+                    currentEnv[result] = String(left) + String(right);
+                } else {
+                    currentEnv[result] = left + right;
+                }
+                pc++;
+                break;
+            }
+
+            case "-":
+                currentEnv[result] = getVal(arg1, currentEnv) - getVal(arg2, currentEnv);
+                pc++;
+                break;
+
+            case "*":
+                currentEnv[result] = getVal(arg1, currentEnv) * getVal(arg2, currentEnv);
+                pc++;
+                break;
+
+            case "/":
+                currentEnv[result] = getVal(arg1, currentEnv) / getVal(arg2, currentEnv);
+                pc++;
+                break;
+
+            case "%":
+                currentEnv[result] = getVal(arg1, currentEnv) % getVal(arg2, currentEnv);
+                pc++;
+                break;
+
+            case "==":
+                currentEnv[result] = getVal(arg1, currentEnv) === getVal(arg2, currentEnv);
+                pc++;
+                break;
+
+            case "!=":
+                currentEnv[result] = getVal(arg1, currentEnv) !== getVal(arg2, currentEnv);
+                pc++;
+                break;
+
+            case "<":
+                currentEnv[result] = getVal(arg1, currentEnv) < getVal(arg2, currentEnv);
+                pc++;
+                break;
+
+            case ">":
+                currentEnv[result] = getVal(arg1, currentEnv) > getVal(arg2, currentEnv);
+                pc++;
+                break;
+
+            case "<=":
+                currentEnv[result] = getVal(arg1, currentEnv) <= getVal(arg2, currentEnv);
+                pc++;
+                break;
+
+            case ">=":
+                currentEnv[result] = getVal(arg1, currentEnv) >= getVal(arg2, currentEnv);
+                pc++;
+                break;
+
+            case "&&":
+                currentEnv[result] = getVal(arg1, currentEnv) && getVal(arg2, currentEnv);
+                pc++;
+                break;
+
+            case "||":
+                currentEnv[result] = getVal(arg1, currentEnv) || getVal(arg2, currentEnv);
+                pc++;
+                break;
+
+            case "ARR_DECL": {
+                const size = getVal(arg1, currentEnv);
+                arrays[result] = new Array(Number(size)).fill(0);
+                pc++;
+                break;
+            }
+
+            case "ARR_SET": {
+                const arrName = arg1;
+                const idx = getVal(arg2, currentEnv);
+                const val = getVal(result, currentEnv);
+                if (arrays[arrName]) {
+                    arrays[arrName][idx] = val;
+                }
+                pc++;
+                break;
+            }
+
+            case "ARR_GET": {
+                const arrName = arg1;
+                const idx = getVal(arg2, currentEnv);
+                if (arrays[arrName]) {
+                    currentEnv[result] = arrays[arrName][idx];
+                } else {
+                    currentEnv[result] = 0;
+                }
+                pc++;
+                break;
+            }
+
+            case "IFFALSE":
+                if (!getVal(arg1, currentEnv)) {
+                    pc = labels[result] !== undefined ? labels[result] : pc + 1;
+                } else {
+                    pc++;
+                }
+                break;
+
+            case "GOTO":
+                pc = labels[result] !== undefined ? labels[result] : pc + 1;
+                break;
+
+            case "PARAM":
+                paramStack.push(getVal(arg1, currentEnv));
+                pc++;
+                break;
+
+            case "CALL":
+                if (
+                    arg1 === "print" || 
+                    arg1 === "System.out.print" || 
+                    arg1 === "System.out.println" ||
+                    arg1.includes("print")
+                ) {
+                    const printArgs = [];
+                    while (paramStack.length > 0) {
+                        printArgs.unshift(paramStack.pop());
+                    }
+                    
+                    const text = printArgs.join("");
+                    output.push(text);
+                    if (arg1.includes("println")) {
+                        output.push("\n");
+                    }
+                    paramStack = [];
+                    pc++;
+                } else if (arg1 === "input") {
+                    const rawVal = readInput();
+                    const numVal = Number(rawVal);
+                    currentEnv[result] = isNaN(numVal) ? rawVal : numVal;
+                    paramStack = [];
+                    pc++;
+                } else if (arg1 === "sc.close" || arg1 === "close") {
+                    paramStack = [];
+                    pc++;
+                } else if (labels[arg1] !== undefined) {
+                    const nextEnv = {};
+                    const fnInfo = functionInfo[arg1];
+                    
+                    if (fnInfo && fnInfo.params) {
+                        const passedArgs = [];
+                        const argCount = Number(arg2) || fnInfo.params.length;
+                        for (let i = 0; i < argCount; i++) {
+                            if (paramStack.length > 0) {
+                                passedArgs.unshift(paramStack.pop());
+                            }
+                        }
+                        fnInfo.params.forEach((paramName, idx) => {
+                            nextEnv[paramName] = passedArgs[idx] !== undefined ? passedArgs[idx] : 0;
+                        });
+                    }
+
+                    callStack.push({
+                        returnPc: pc + 1,
+                        targetVar: result,
+                        env: currentEnv
+                    });
+
+                    currentEnv = nextEnv;
+                    paramStack = [];
+                    pc = labels[arg1];
+                } else {
+                    paramStack = [];
+                    pc++;
+                }
+                break;
+
+            case "RETURN": {
+                const retVal = getVal(arg1, currentEnv);
+                if (callStack.length > 0) {
+                    const topFrame = callStack.pop();
+                    currentEnv = topFrame.env;
+                    if (topFrame.targetVar) {
+                        currentEnv[topFrame.targetVar] = retVal;
+                    }
+                    pc = topFrame.returnPc;
+                } else {
+                    pc = instructions.length; 
+                }
+                break;
+            }
+
+            case "LABEL":
+            case "DECLARE":
+            case "END_FUNC":
+            case "PARAM_DECL":
+                pc++;
+                break;
+
+            default:
+                pc++;
+                break;
+        }
+    }
+
+    return {
+        output: output.join(""),
+        env: currentEnv
+    };
+}
+
+function compileJava(code, input = "") {
+    try {
+        const parser = new Parser(code);
         const ast = parser.parseProgram();
-        response.ast = ast;
 
         const analyzer = new SemanticAnalyzer();
         const semanticResult = analyzer.analyze(ast);
-        response.semantic = semanticResult;
 
         if (!semanticResult.isValid) {
-            response.error =
-                "Semantic Analysis Failed: " + semanticResult.errors.join("; ");
-            return response;
+            return {
+                success: false,
+                error: semanticResult.errors.join("\n"),
+                ast,
+                tac: []
+            };
         }
 
-        const tacGen = new TACGenerator();
-        const rawTAC = tacGen.generate(ast);
-        response.tac = tacGen.toStringArray();
+        const generator = new TACGenerator();
+        const tac = generator.generate(ast);
 
-        const optimizer = new Optimizer(rawTAC);
-        const optimizedTAC = optimizer.optimize();
+        const execution = executeTAC(tac, input);
 
-        tacGen.instructions = optimizedTAC;
-        response.optimizedTac = tacGen.toStringArray();
-
-        const targetGen = new TargetCodeGenerator();
-        targetGen.generate(optimizedTAC);
-        response.targetCode = targetGen.toString();
-
-        // Real execution. If this is "", the program genuinely printed
-        // nothing — we do NOT substitute fake data anymore.
-        response.output = executeTAC(optimizedTAC);
-        response.success = true;
-        return response;
-
+        return {
+            success: true,
+            output: execution.output,
+            ast,
+            tac: generator.toStringArray(),
+            env: execution.env
+        };
     } catch (err) {
-        response.error = err.message;
-        return response;
+        return {
+            success: false,
+            error: err.message,
+            ast: null,
+            tac: []
+        };
     }
 }
 

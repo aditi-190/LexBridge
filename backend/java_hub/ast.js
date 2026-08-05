@@ -1,6 +1,3 @@
-// backend/java_hub/ast.js
-
-// Program Node
 function ProgramNode(body = []) {
     return {
         type: "Program",
@@ -8,7 +5,6 @@ function ProgramNode(body = []) {
     };
 }
 
-// Variable Declaration (e.g., int x = 10;)
 function VariableDeclarationNode(dataType, identifier, value = null) {
     return {
         type: "VariableDeclaration",
@@ -17,8 +13,6 @@ function VariableDeclarationNode(dataType, identifier, value = null) {
         value
     };
 }
-
-// Assignment (e.g., x = 20;)
 function AssignmentNode(identifier, value) {
     return {
         type: "Assignment",
@@ -26,17 +20,14 @@ function AssignmentNode(identifier, value) {
         value
     };
 }
-
-// Literal (10, 3.14, "Hello", true)
 function LiteralNode(value, rawType = null) {
     return {
         type: "Literal",
         value,
-        rawType // Optional: "INT", "FLOAT", "STRING", "BOOLEAN"
+        rawType 
     };
 }
 
-// Identifier (x, sum, add)
 function IdentifierNode(name) {
     return {
         type: "Identifier",
@@ -44,7 +35,6 @@ function IdentifierNode(name) {
     };
 }
 
-// Binary Expression (e.g., a + b, x > 5)
 function BinaryExpressionNode(operator, left, right) {
     return {
         type: "BinaryExpression",
@@ -53,8 +43,6 @@ function BinaryExpressionNode(operator, left, right) {
         right
     };
 }
-
-// Function Call (e.g., add(5, 10); or print(x);)
 function FunctionCallNode(name, argumentsList = []) {
     return {
         type: "FunctionCall",
@@ -63,15 +51,12 @@ function FunctionCallNode(name, argumentsList = []) {
     };
 }
 
-// Block Node (e.g., { stmt1; stmt2; })
 function BlockNode(statements = []) {
     return {
         type: "Block",
         statements
     };
 }
-
-// If Statement (e.g., if (x > 5) { ... } else { ... })
 function IfStatementNode(condition, thenBranch, elseBranch = null) {
     return {
         type: "IfStatement",
@@ -80,8 +65,6 @@ function IfStatementNode(condition, thenBranch, elseBranch = null) {
         elseBranch
     };
 }
-
-// While Statement (e.g., while (x < 10) { ... })
 function WhileStatementNode(condition, body) {
     return {
         type: "WhileStatement",
@@ -89,8 +72,6 @@ function WhileStatementNode(condition, body) {
         body
     };
 }
-
-// For Statement (e.g., for (int i = 0; i < 10; i = i + 1) { ... })
 function ForStatementNode(init, condition, update, body) {
     return {
         type: "ForStatement",
@@ -99,24 +80,93 @@ function ForStatementNode(init, condition, update, body) {
         update,
         body
     };
-}
-
-// Function Declaration (e.g., int add(int a, int b) { ... })
-function FunctionDeclarationNode(returnType, name, params = [], body = null) {
+}function FunctionDeclarationNode(returnType, name, params = [], body = null) {
     return {
         type: "FunctionDeclaration",
         returnType,
         name,
-        params, // Array of { dataType, identifier }
+        params, 
         body
     };
 }
 
-// Return Statement (e.g., return x + y;)
 function ReturnStatementNode(value = null) {
     return {
         type: "ReturnStatement",
         value
+    };
+}
+
+function ArrayDeclarationNode(dataType, identifier, size = null, elements = null) {
+    return {
+        type: "ArrayDeclaration",
+        dataType,
+        identifier,
+        size,    
+        elements   
+    };
+}
+
+function ArrayAccessNode(name, index) {
+    return {
+        type: "ArrayAccess",
+        name,
+        index
+    };
+}
+
+function ArrayAssignmentNode(name, index, value) {
+    return {
+        type: "ArrayAssignment",
+        name,
+        index,
+        value
+    };
+}
+
+function SwitchStatementNode(discriminant, cases = [], defaultCase = null) {
+    return {
+        type: "SwitchStatement",
+        discriminant,
+        cases,       
+        defaultCase   
+    };
+}
+
+function CaseNode(test, body = []) {
+    return {
+        type: "Case",
+        test,
+        body
+    };
+}
+
+function BreakStatementNode() {
+    return {
+        type: "BreakStatement"
+    };
+}
+
+function UpdateExpressionNode(identifier, operator) {
+    return {
+        type: "UpdateExpression",
+        identifier,
+        operator
+    };
+}
+
+
+function ScannerInitNode(identifier) {
+    return {
+        type: "ScannerInit",
+        identifier
+    };
+}
+function ScannerReadNode(identifier, method) {
+    return {
+        type: "ScannerRead",
+        identifier,
+        method
     };
 }
 
@@ -133,5 +183,14 @@ module.exports = {
     WhileStatementNode,
     ForStatementNode,
     FunctionDeclarationNode,
-    ReturnStatementNode
+    ReturnStatementNode,
+    ArrayDeclarationNode,
+    ArrayAccessNode,
+    ArrayAssignmentNode,
+    SwitchStatementNode,
+    CaseNode,
+    BreakStatementNode,
+    UpdateExpressionNode,
+    ScannerInitNode,
+    ScannerReadNode
 };

@@ -1,10 +1,9 @@
 module.exports = [
+    // original custom-language keywords
     "int",
     "float",
     "bool",
-    "boolean",
     "string",
-    "String",   // Java-style capitalized type (e.g. String[] args)
     "void",
     "if",
     "else",
@@ -16,11 +15,22 @@ module.exports = [
     "true",
     "false",
 
-    // --- Java boilerplate support (class/method wrappers) ---
+    // real-Java syntax support
     "public",
     "private",
-    "protected",
+    "class",
     "static",
-    "final",
-    "class"
+    "String",
+    "boolean",
+    "double",
+    "char",
+    "new",
+    "switch",
+    "case",
+    "default",
+    "break",
+
+    // Scanner & Import keywords
+    "import",
+    "Scanner"
 ];

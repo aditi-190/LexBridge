@@ -38,13 +38,6 @@ class Optimizer {
             return inst;
         });
     }
-
-    /**
-     * Counts how many times each name appears as an operand (arg1/arg2)
-     * across the whole instruction list. Needed so copy-propagation only
-     * eliminates a temp when it's truly used in exactly one place —
-     * otherwise merging silently drops the other uses and corrupts output.
-     */
     countUsages(instructions) {
         const usage = {};
         for (const inst of instructions) {
@@ -66,8 +59,7 @@ class Optimizer {
             const next = instructions[i + 1];
 
             const isTemp = current.result && current.result.startsWith("t");
-            // Safe to fold current's result straight into "next" ONLY if
-            // that temp isn't referenced anywhere else in the program.
+        
             const usedExactlyOnce = isTemp && usage[current.result] === 1;
 
             if (
@@ -77,7 +69,7 @@ class Optimizer {
                 usedExactlyOnce
             ) {
                 newInsts.push({ ...current, result: next.result });
-                i++; // consume the merged "next" instruction
+                i++; 
             } else {
                 newInsts.push(current);
             }

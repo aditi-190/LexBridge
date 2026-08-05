@@ -1,7 +1,7 @@
 const compileJava = require("../java_hub/compileJava");
 
-function runJavaCompiler(code) {
-    return compileJava(code);
+function runJavaCompiler(code, input) {
+    return compileJava(code, input);
 }
 
 module.exports = {
