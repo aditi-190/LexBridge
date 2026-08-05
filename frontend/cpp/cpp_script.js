@@ -16,62 +16,68 @@ runBtn.addEventListener("click", async () => {
     const sourceCode = code.value;
     const programInput = inputBox.value;
 
-    if(sourceCode.trim()===""){
+    if (sourceCode.trim() === "") {
 
-        output.innerText="Please write C++ code first.";
-
+        output.textContent = "Please write C++ code first.";
         return;
 
     }
 
-    output.innerText="Running Program...";
+    output.textContent = "Running Program...";
 
-    try{
+    try {
 
-       console.log("Source Code:", sourceCode);
-console.log("Program Input:", programInput);
-console.log("Run button clicked");
-    const response = await fetch("http://localhost:5000/api/cpp/run", {
+        console.log("Run button clicked");
+        console.log("Source Code:", sourceCode);
+        console.log("Program Input:", programInput);
 
-    method: "POST",
+        const response = await fetch("http://localhost:5000/api/cpp/run", {
 
-    headers: {
-        "Content-Type": "application/json"
-    },
+            method: "POST",
 
-    body: JSON.stringify({
+            headers: {
 
-        code: sourceCode,
+                "Content-Type": "application/json"
 
-        input: programInput
+            },
 
-    })
+            body: JSON.stringify({
 
-});
-        if(!response.ok){
-    throw new Error("Server Error");
-}
+                code: sourceCode,
 
+                input: programInput
 
-console.log("Response Status:", response.status);
+            })
 
+        });
+
+        const result = await response.json();
+
+        console.log("Backend Response:", result);
+
+        if (!response.ok) {
+
+            output.textContent =
+                result.error || "Server Error";
+
+            return;
+
+        }
+
+        output.textContent =
+            result.output || "Program finished.";
 
     }
 
-   catch(error){
+    catch (error) {
 
-    console.error("Frontend Error:", error);
+        console.error("Frontend Error:", error);
 
-    output.innerText = error.message;
+        output.textContent =
+            "Cannot connect to backend server.";
 
+    }
 
-
-    const result = await response.json();
-
-console.log("Backend Response:", result);
-
-output.textContent = result.output;
-}
 });
 
 
@@ -79,25 +85,25 @@ output.textContent = result.output;
 // SAVE BUTTON
 // =========================
 
-saveBtn.addEventListener("click",()=>{
+saveBtn.addEventListener("click", () => {
 
-    const blob=new Blob(
+    const blob = new Blob(
 
         [code.value],
 
         {
 
-            type:"text/plain"
+            type: "text/plain"
 
         }
 
     );
 
-    const link=document.createElement("a");
+    const link = document.createElement("a");
 
-    link.href=URL.createObjectURL(blob);
+    link.href = URL.createObjectURL(blob);
 
-    link.download="program.cpp";
+    link.download = "program.cpp";
 
     link.click();
 
@@ -108,10 +114,20 @@ saveBtn.addEventListener("click",()=>{
 // SHARE BUTTON
 // =========================
 
-shareBtn.addEventListener("click",()=>{
+shareBtn.addEventListener("click", async () => {
 
-    navigator.clipboard.writeText(code.value);
+    try {
 
-    alert("Code copied to clipboard.");
+        await navigator.clipboard.writeText(code.value);
+
+        alert("Code copied to clipboard.");
+
+    }
+
+    catch (err) {
+
+        alert("Clipboard access failed.");
+
+    }
 
 });

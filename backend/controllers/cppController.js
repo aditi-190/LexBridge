@@ -1,37 +1,55 @@
-const compileCpp = require("../services/compilerCpp");
+const { runCppCompiler } = require("../services/compilerCpp");
 
-const runCppCode = async (req, res) => {
+function run(req, res) {
 
     try {
 
-        console.log("========== API CALLED ==========");
-
-        console.log("Request Body:", req.body);
-
         const { code, input } = req.body;
+        // Debug
+        console.log("Received Code:");
+        console.log(code);
 
-        const result = await compileCpp(code, input);
+        console.log("Received Input:");
+        console.log(input);
 
-        console.log("Compiler Result:", result);
+        if (!code || !code.trim()) {
 
-        res.json(result);
+            return res.status(400).json({
+
+                success: false,
+
+                message: "Source code is required."
+
+            });
+
+        }
+
+        const result = runCppCompiler(code, input);
+
+        return res.json(result);
 
     }
 
     catch (err) {
 
-        console.log("Controller Error:", err);
+        console.error("C++ Compiler Error:", err);
 
-        res.status(500).json({
+        return res.status(500).json({
 
             success: false,
 
-            output: err.message
+            message: "Compiler Error",
+
+            error: err.message
 
         });
 
     }
 
-};
+}
 
-module.exports = { runCppCode };
+module.exports = {
+
+    run
+
+};
