@@ -147,6 +147,11 @@ class Parser {
             );
 
         }
+        console.log("===== PROGRAM BODY =====");
+
+body.forEach(node => {
+    console.log(node.type);
+});
 
         return {
 

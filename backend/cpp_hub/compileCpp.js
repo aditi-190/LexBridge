@@ -34,8 +34,10 @@ console.log(lexical.tokens);
     // Syntax Analysis
     const syntax = parseCPP(lexical.tokens);
 
-    console.log("===== PARSER ERRORS =====");
+console.log("===== PARSER ERRORS =====");
 console.log(syntax.errors);
+
+
 
     if (syntax.errors.length > 0) {
 
