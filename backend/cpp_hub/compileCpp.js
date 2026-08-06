@@ -194,6 +194,8 @@ console.log(semantic);
     // Execute Program
    const execution =
     executeProgram(ast, input);
+    console.log("===== EXECUTION RESULT =====");
+console.log(JSON.stringify(execution, null, 2));
     console.log(execution);
 
     if (!execution) {

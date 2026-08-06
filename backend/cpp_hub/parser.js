@@ -111,62 +111,50 @@ class Parser {
     // ==========================
     // PROGRAM
     // ==========================
+parseProgram() {
 
-    parseProgram() {
+    const body = [];
 
-        const body = [];
+    while (!this.isAtEnd()) {
 
-        while (!this.isAtEnd()) {
+        if (this.check(TokenType.HASH)) {
 
-            if (
-                this.check(TokenType.KEYWORD, "include")
-            ) {
+            body.push(this.parseInclude());
 
-                body.push(
-                    this.parseInclude()
-                );
-
-                continue;
-
-            }
-
-            if (
-                this.check(TokenType.KEYWORD, "using")
-            ) {
-
-                body.push(
-                    this.parseUsingNamespace()
-                );
-
-                continue;
-
-            }
-
-            body.push(
-                this.parseFunction()
-            );
-
+            continue;
         }
-        console.log("===== PROGRAM BODY =====");
 
-body.forEach(node => {
-    console.log(node.type);
-});
+        if (
+            this.check(TokenType.KEYWORD, "using")
+        ) {
 
-        return {
+            body.push(this.parseUsingNamespace());
 
-            type: "Program",
+            continue;
+        }
 
-            body
-
-        };
+        body.push(this.parseFunction());
 
     }
+
+    console.log("===== PROGRAM BODY =====");
+
+    body.forEach(node => {
+        console.log(node.type);
+    });
+
+    return {
+        type: "Program",
+        body
+    };
+}
 
     // ==========================
     // INCLUDE
     // ==========================
 parseInclude() {
+
+    console.log("Current Token:", this.peek());
 
     this.consume(
         TokenType.HASH,
@@ -180,21 +168,20 @@ parseInclude() {
         "Expected include"
     );
 
-    const header =
-        this.consume(
-            TokenType.HEADER,
-            null,
-            "Expected header"
-        );
+    const header = this.consume(
+        TokenType.HEADER,
+        null,
+        "Expected header"
+    );
+
+    if (!header) {
+        throw new Error("Header token not found");
+    }
 
     return {
-
-        type:"IncludeStatement",
-
-        header:header.value
-
+        type: "IncludeStatement",
+        header: header.value
     };
-
 }
     // ==========================
     // USING NAMESPACE

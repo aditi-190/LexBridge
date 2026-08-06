@@ -21,6 +21,7 @@ const TokenType = {
 
     SEMICOLON: "SEMICOLON",
     COMMA: "COMMA",
+    DOT: "DOT",
 
     EOF: "EOF",
     HASH: "HASH"
@@ -123,8 +124,10 @@ const PUNCTUATION = {
 
     ";": TokenType.SEMICOLON,
     ",": TokenType.COMMA,
-    "#": TokenType.HASH,
+  
 
+    "#": TokenType.HASH,
+    
 };
 
 class Lexer {
@@ -365,8 +368,7 @@ class Lexer {
     }
     matchOperator() {
 
-    console.log("Checking:", this.source.substring(this.position, this.position + 5));
-
+    
     for (const op of OPERATORS) {
 
         if (this.source.startsWith(op, this.position)) {
@@ -386,6 +388,7 @@ class Lexer {
 
     return null;
 }
+
         tokenize() {
 
         while (!this.isAtEnd()) {
@@ -401,7 +404,39 @@ class Lexer {
 
             const ch = this.peek();
 
-            
+console.log("Previous Tokens:", this.tokens.map(t => t.value));
+console.log("Header Check:", ch);
+
+            // =====================================
+// Header file (#include <stdio.h>)
+// =====================================
+if (
+    ch === "<" &&
+    this.tokens.length >= 2 &&
+    this.tokens[this.tokens.length - 1].type === TokenType.KEYWORD &&
+    this.tokens[this.tokens.length - 1].value === "include"
+) {
+
+    this.advance(); // skip <
+
+    let header = "";
+
+    while (!this.isAtEnd() && this.peek() !== ">") {
+        header += this.advance();
+    }
+
+    this.advance(); // skip >
+
+    this.tokens.push({
+        type: TokenType.HEADER,
+        value: header,
+        tokenName: "HEADER",
+        line: startLine,
+        column: startColumn
+    });
+
+    continue;
+}
             // Number
             if (this.isDigit(ch)) {
 

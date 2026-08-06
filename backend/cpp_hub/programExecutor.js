@@ -235,7 +235,8 @@ for (const node of program.body) {
                 }
 
                 break;
-            case "ExpressionStatement":
+
+     case "ExpressionStatement":
 
     this.evaluate(node.expression);
 
@@ -343,7 +344,7 @@ executeAssignment(node) {
 executeCout(node) {
 
     console.log("executeCout called");
-
+console.log(node);
     const values = [];
 
     for (const item of node.values) {
@@ -574,7 +575,12 @@ evaluate(node) {
 
 executeFunctionCall(node) {
 
+     if (node.name === "printf") {
+        return this.executePrintf(node);
+    }
+
     const func = this.functions[node.name];
+
 
     if (!func) {
 
@@ -618,6 +624,38 @@ executeFunctionCall(node) {
 
     return value;
 
+}
+
+executePrintf(node) {
+
+    const args = node.arguments || [];
+
+    if (args.length === 0) return 0;
+
+    let format = this.evaluate(args[0]);
+
+    let output = format;
+
+    // Replace %d
+    for (let i = 1; i < args.length; i++) {
+
+        output = output.replace(
+            "%d",
+            this.evaluate(args[i])
+        );
+
+        output = output.replace(
+            "%s",
+            this.evaluate(args[i])
+        );
+
+    }
+
+    output = output.replace(/\\n/g, "\n");
+
+    this.output.push(output);
+
+    return output.length;
 }
 
 // ==========================================
