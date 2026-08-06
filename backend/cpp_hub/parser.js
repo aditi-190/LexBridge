@@ -189,42 +189,35 @@ parseInclude() {
 
     parseUsingNamespace() {
 
-        this.consume(
-            TokenType.KEYWORD,
-            "using",
-            "Expected using"
-        );
+    this.consume(
+        TokenType.KEYWORD,
+        "using",
+        "Expected using"
+    );
 
-        this.consume(
-            TokenType.KEYWORD,
-            "namespace",
-            "Expected namespace"
-        );
+    this.consume(
+        TokenType.KEYWORD,
+        "namespace",
+        "Expected namespace"
+    );
 
-        const name = this.consume(
-            TokenType.KEYWORD,
-            "std",
-            "Expected std"
-        );
+    const name = this.consume(
+        TokenType.IDENTIFIER,
+        null,
+        "Expected namespace name"
+    );
 
-        this.consume(
-            TokenType.SEMICOLON,
-            null,
-            "Missing ';'"
-        );
+    this.consume(
+        TokenType.SEMICOLON,
+        null,
+        "Missing ';'"
+    );
 
-        return {
-
-            type: "UsingNamespace",
-
-            name:
-                name
-                    ? name.value
-                    : ""
-
-        };
-
-    }
+    return {
+        type: "UsingNamespace",
+        name: name.value
+    };
+}
 // ==========================
 // FUNCTION
 // ==========================

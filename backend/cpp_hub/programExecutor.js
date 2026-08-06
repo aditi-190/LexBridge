@@ -236,11 +236,11 @@ for (const node of program.body) {
 
                 break;
 
-     case "ExpressionStatement":
+             case "ExpressionStatement":
 
-    this.evaluate(node.expression);
+             this.evaluate(node.expression);
 
-    break;
+            break;
 
             case "VariableDeclaration":
 
@@ -287,6 +287,26 @@ for (const node of program.body) {
             this.executeIf(node);
 
              break;
+            case "Program":
+
+    for (const item of node.body) {
+        this.visit(item);
+
+        if (this.stopped)
+            break;
+    }
+
+    break;
+
+case "IncludeStatement":
+
+
+    break;
+
+case "UsingNamespaceStatement":
+
+    
+    break;
 
             default:
 

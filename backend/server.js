@@ -2,17 +2,19 @@ const dns = require("dns");
 dns.setServers(["8.8.8.8", "8.8.4.4"]);
 
 const express = require("express");
+
 const cors = require("cors");
 
-const connectDB = require("./config/db");
+require("dotenv").config();
 
-const javaRoutes = require("./routes/javaRoutes");
+const app = express();
+
 const cRoutes = require("./routes/cRoutes");
 const cppRoutes = require("./routes/cppRoutes");
+const javaRoutes=require("./routes/javaRoutes");
 const historyRoutes = require("./routes/historyRoutes");
 const pythonRoutes = require("./routes/pythonRoutes"); // <-- ১. Python Routes যুক্ত করা হলো
 
-require("dotenv").config();
 
 // Log uncaught exceptions and unhandled rejections so we can see full stacks
 process.on('uncaughtException', (err) => {
@@ -22,7 +24,7 @@ process.on('unhandledRejection', (reason) => {
     console.error('Unhandled Rejection:', reason && reason.stack ? reason.stack : reason);
 });
 
-const app = express();
+
 
 app.use(cors());
 app.use(express.json());
@@ -30,7 +32,7 @@ app.use(express.json());
 console.log("Node Version:", process.version);
 console.log("Mongo URI:", process.env.MONGODB_URI);
 
-connectDB();
+
 
 app.use("/api/java", javaRoutes);
 app.use("/api/c", cRoutes);
