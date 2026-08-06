@@ -273,15 +273,44 @@ class ProgramExecutor {
 
                 break;
 
+case "VariableDeclaration": {
 
-            case "VariableDeclaration":
 
-                this.executeVariableDeclaration(
-                    node
-                );
+    if(Array.isArray(node.variables)){
 
-                break;
 
+        node.variables.forEach(variable=>{
+
+
+            if(variable.value){
+
+                this.variables[variable.name] =
+                    this.evaluate(variable.value);
+
+            }
+            else{
+
+                if(node.dataType === "char")
+                {
+                    this.variables[variable.name] = "";
+                }
+                else
+                {
+                    this.variables[variable.name] = 0;
+                }
+
+            }
+
+
+        });
+
+
+    }
+
+
+    break;
+
+}
 
             case "Assignment":
 
@@ -474,33 +503,55 @@ executeFor(node) {
     }
 
 }
+
 executeScanf(node){
 
-    if(
-        this.inputIndex >= this.input.length
-    ){
+    if(!Array.isArray(node.variables)){
 
         throw new Error(
-            "Input not provided"
+            "Invalid scanf variables"
         );
 
     }
 
 
-    const value =
-        Number(
-            this.input[this.inputIndex]
-        );
+    node.variables.forEach(variable=>{
 
 
-    this.inputIndex++;
+        if(
+            this.inputIndex >= this.input.length
+        ){
+
+            throw new Error(
+                "Input not provided"
+            );
+
+        }
 
 
-    this.variables[node.variable] =
-        value;
+        let value =
+            this.input[this.inputIndex];
+
+
+        this.inputIndex++;
+
+
+        // number হলে number বানাবে
+        // string হলে string রাখবে
+
+        if(!isNaN(value))
+        {
+            value = Number(value);
+        }
+
+
+        this.variables[variable] =
+            value;
+
+
+    });
 
 }
-
 
     // ==========================================
     // ASSIGNMENT

@@ -493,7 +493,8 @@ if (
             (
                 token.value === "int" ||
                 token.value === "float" ||
-                token.value === "bool"
+                token.value === "bool"||
+                 token.value === "char"
             )
 
         ) {
@@ -561,15 +562,6 @@ if (
             return this.parsePrint();
 
         }
-
-        if (
-    token.type === TokenType.KEYWORD &&
-    token.value === "scanf"
-) {
-
-    return this.parseScanf();
-
-}
 
 
         if (
@@ -710,7 +702,7 @@ if (
 // SCANF
 // ==========================================
 
-parseScanf() {
+parseScanf(){
 
     this.consume(
         TokenType.KEYWORD,
@@ -722,39 +714,50 @@ parseScanf() {
     this.consume(
         TokenType.LPAREN,
         null,
-        "Expected '(' after scanf"
+        "Expected '('"
     );
 
 
-    // format string "%d"
-    const format =
-        this.advance();
+    const format = this.advance();
 
 
-    this.consume(
-        TokenType.COMMA,
-        null,
-        "Expected ',' after format"
-    );
+    const variables=[];
 
 
-    // skip &
-    if(
-        this.match(
-            TokenType.OPERATOR,
-            "&"
-        )
-    ){
+    if(this.match(TokenType.COMMA,null)){
+
+
+        while(true){
+
+
+            this.match(
+                TokenType.OPERATOR,
+                "&"
+            );
+
+
+            const variable =
+                this.consume(
+                    TokenType.IDENTIFIER,
+                    null,
+                    "Expected variable"
+                );
+
+
+            if(variable){
+                variables.push(variable.value);
+            }
+
+
+            if(this.match(TokenType.COMMA,null)){
+                continue;
+            }
+
+            break;
+
+        }
 
     }
-
-
-    const variable =
-        this.consume(
-            TokenType.IDENTIFIER,
-            null,
-            "Expected variable name"
-        );
 
 
     this.consume(
@@ -775,22 +778,28 @@ parseScanf() {
 
         type:"ScanfStatement",
 
-        variable:
-            variable.value
+        format: format.value,
+
+        variables
 
     };
+
 
 }
 
     // ==========================================
     // VARIABLE DECLARATION
     // ==========================================
+parseVariableDeclaration() {
 
-    parseVariableDeclaration() {
+    const dataType =
+        this.advance().value;
 
-        const dataType =
-            this.advance().value;
 
+    const variables = [];
+
+
+    do {
 
         const identifier =
             this.consume(
@@ -800,15 +809,67 @@ parseScanf() {
             );
 
 
+        let isArray = false;
+
+        let arraySize = null;
+
+
+        // ==========================
+        // Array support
+        // char name[20]
+        // char name[]
+        // ==========================
+
+        if(
+            this.match(
+                TokenType.LBRACKET,
+                null
+            )
+        ){
+
+            isArray = true;
+
+
+            if(
+                this.check(
+                    TokenType.INTEGER,
+                    null
+                )
+            ){
+
+                arraySize =
+                    Number(
+                        this.advance().value
+                    );
+
+            }
+
+
+            this.consume(
+                TokenType.RBRACKET,
+                null,
+                "Expected ']'"
+            );
+
+        }
+
+
+
         let value = null;
 
 
-        if (
+        // ==========================
+        // Initialization
+        // int a = 10
+        // char name = "Prome"
+        // ==========================
+
+        if(
             this.match(
                 TokenType.OPERATOR,
                 "="
             )
-        ) {
+        ){
 
             value =
                 this.parseExpression();
@@ -816,31 +877,60 @@ parseScanf() {
         }
 
 
-        this.consume(
-            TokenType.SEMICOLON,
-            null,
-            "Missing ';'"
-        );
+
+        if(identifier){
+
+            variables.push({
+
+                name:
+                    identifier.value,
 
 
-        return {
+                value,
 
-            type: "VariableDeclaration",
 
-            dataType,
+                isArray,
 
-            identifier:
-                identifier
-                    ? identifier.value
-                    : "",
 
-            value
+                arraySize
 
-        };
+            });
+
+        }
+
 
     }
+    while(
+        this.match(
+            TokenType.COMMA,
+            null
+        )
+    );
 
 
+
+    this.consume(
+        TokenType.SEMICOLON,
+        null,
+        "Missing ';'"
+    );
+
+
+
+    return {
+
+        type:
+            "VariableDeclaration",
+
+
+        dataType,
+
+
+        variables
+
+    };
+
+}
     // ==========================================
     // ASSIGNMENT
     // ==========================================
@@ -890,67 +980,98 @@ parseScanf() {
     // IF
     // ==========================================
 
-    parseIf() {
+   parseIf(){
 
-        this.consume(
-            TokenType.KEYWORD,
-            "if",
-            "Expected 'if'"
-        );
-
-
-        this.consume(
-            TokenType.LPAREN,
-            null,
-            "Expected '(' after 'if'"
-        );
+    this.consume(
+        TokenType.KEYWORD,
+        "if",
+        "Expected if"
+    );
 
 
-        const condition =
-            this.parseExpression();
+    this.consume(
+        TokenType.LPAREN,
+        null,
+        "Expected '('"
+    );
 
 
-        this.consume(
-            TokenType.RPAREN,
-            null,
-            "Expected ')' after condition"
-        );
+    const condition =
+        this.parseExpression();
 
 
-        const thenBranch =
-            this.parseBlock();
+    this.consume(
+        TokenType.RPAREN,
+        null,
+        "Expected ')'"
+    );
 
 
-        let elseBranch = null;
+    let thenBranch;
 
 
-        if (
-            this.match(
-                TokenType.KEYWORD,
-                "else"
-            )
-        ) {
+    if(this.check(TokenType.LBRACE,null)){
 
-            elseBranch =
-                this.parseBlock();
+        thenBranch=this.parseBlock();
 
-        }
+    }
+    else{
 
-
-        return {
-
-            type: "IfStatement",
-
-            condition,
-
-            thenBranch,
-
-            elseBranch
-
+        thenBranch={
+            type:"Block",
+            body:[
+                this.parseStatement()
+            ]
         };
 
     }
 
+
+
+    let elseBranch=null;
+
+
+    if(
+        this.match(
+            TokenType.KEYWORD,
+            "else"
+        )
+    ){
+
+
+        if(this.check(TokenType.LBRACE,null)){
+
+            elseBranch=this.parseBlock();
+
+        }
+        else{
+
+            elseBranch={
+                type:"Block",
+                body:[
+                    this.parseStatement()
+                ]
+            };
+
+        }
+
+    }
+
+
+    return {
+
+        type:"IfStatement",
+
+        condition,
+
+        thenBranch,
+
+        elseBranch
+
+    };
+
+
+}
 
     // ==========================================
     // WHILE

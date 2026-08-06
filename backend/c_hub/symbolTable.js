@@ -66,7 +66,15 @@ class SymbolTable {
         type,
         line,
         kind = "variable"
-    ) {
+    ) 
+    {
+        console.log(
+        "DECLARE =>",
+        name,
+        type,
+        kind
+    );
+        
 
         const scope =
             this.currentScope();
@@ -432,38 +440,51 @@ function buildSymbolTable(ast) {
             // VARIABLE DECLARATION
             // ==================================
 
-            case "VariableDeclaration": {
 
-                const result =
-                    table.declare(
-                        node.identifier,
-                        node.dataType,
-                        node.line || 0,
-                        "variable"
-                    );
+case "VariableDeclaration": {
 
 
-                if (!result.success) {
-
-                    addError(
-                        result.error,
-                        node.line || 0
-                    );
-
-                }
+    if(Array.isArray(node.variables)){
 
 
-                if (node.value) {
+        node.variables.forEach(variable=>{
 
-                    visit(node.value);
 
-                }
+            const result =
+                table.declare(
+                    variable.name,
+                    node.dataType || "int",
+                    node.line || 0,
+                    "variable"
+                );
 
-                break;
+
+            if(!result.success){
+
+                addError(
+                    result.error,
+                    node.line || 0
+                );
 
             }
 
 
+            if(variable.value){
+
+                visit(variable.value);
+
+            }
+
+
+        });
+
+
+    }
+
+
+    break;
+
+}
             // ==================================
             // ASSIGNMENT
             // ==================================
