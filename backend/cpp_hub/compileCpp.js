@@ -63,10 +63,35 @@ console.log(syntax.errors);
 
     }
 
-    const ast = syntax.ast;
+ const ast = syntax.ast;
 
-    console.log("===== AST =====");
+console.log("===== AST =====");
 console.log(JSON.stringify(ast, null, 2));
+
+console.log("\n===== AST TREE =====");
+printAST(ast);
+
+
+function printAST(node, indent = "") {
+    if (!node) return;
+
+    console.log(indent + node.type);
+
+    for (const key in node) {
+        const value = node[key];
+
+        if (Array.isArray(value)) {
+            value.forEach(child => {
+                if (child && typeof child === "object") {
+                    printAST(child, indent + "   ");
+                }
+            });
+        }
+        else if (value && typeof value === "object") {
+            printAST(value, indent + "   ");
+        }
+    }
+}
 
     // Find main()
     const mainFunction =

@@ -59,8 +59,12 @@ console.log(JSON.stringify(syntax.ast, null, 2));
     // 3. Symbol Table
     // =========================
 
-    const symbolResult =
-        buildSymbolTable(ast);
+const symbolResult =
+    buildSymbolTable(ast);
+
+ console.log("\n===== SYMBOL TABLE =====");
+
+console.log(symbolResult.symbolTable);
 
     if (
         symbolResult.errors &&
@@ -79,13 +83,15 @@ console.log(JSON.stringify(syntax.ast, null, 2));
 
     }
 
-
     // =========================
     // 4. Semantic Analysis
     // =========================
 
     const semantic =
         analyzeSemantic(ast);
+
+    console.log("\n===== SEMANTIC ANALYSIS =====");
+console.log(JSON.stringify(semantic, null, 2));
 
     if (
         semantic.errors &&
@@ -103,6 +109,7 @@ console.log(JSON.stringify(syntax.ast, null, 2));
         };
 
     }
+
 
 
     // =========================
@@ -133,6 +140,8 @@ console.log(JSON.stringify(syntax.ast, null, 2));
     // =========================
 const execution = executeProgram(ast, input);
 
+console.log("\n===== EXECUTION RESULT =====");
+console.log(JSON.stringify(execution, null, 2));
 
     if (!execution) {
 
