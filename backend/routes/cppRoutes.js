@@ -1,17 +1,8 @@
 const express = require("express");
 const router = express.Router();
 
-const { compileCpp } = require("../cpp_hub/compileCpp");
+const cppController = require("../controllers/cppController");
 
-router.post("/compile", (req, res) => {
-
-    const code = req.body.code || "";
-    const input = req.body.input || "";
-
-    const result = compileCpp(code, input);
-
-    res.json(result);
-
-});
+router.post("/run", cppController.run);
 
 module.exports = router;

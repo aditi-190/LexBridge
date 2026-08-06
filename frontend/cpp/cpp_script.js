@@ -6,6 +6,38 @@ const code = document.getElementById("code");
 const inputBox = document.getElementById("input");
 const output = document.getElementById("output");
 
+// =========================
+// LANGUAGE SELECT
+// =========================
+const languageSelect = document.getElementById("languageSelect");
+
+if (languageSelect) {
+
+    languageSelect.addEventListener("change", function () {
+
+        switch (this.value) {
+
+            case "c":
+                window.location.href = "../c/c_ui.html";
+                break;
+
+            case "cpp":
+                window.location.href = "../cpp/cpp_ui.html";
+                break;
+
+            case "java":
+                window.location.href = "../java/java_ui.html";
+                break;
+
+            case "python":
+                window.location.href = "../python/python_ui.html";
+                break;
+        }
+
+    });
+
+}
+
 
 // =========================
 // RUN BUTTON

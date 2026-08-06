@@ -50,71 +50,27 @@
             </div>
 
 
-            <div class="navbar-right">
+          <div class="navbar-right">
 
-                <div class="language-selector">
+    <div class="language-dropdown-container">
 
-                    <button
-                        id="languageBtn"
-                        class="language-btn"
-                        type="button">
+        <span class="label">Language:</span>
 
-                        Language:
-                        <span id="currentLanguage">
-                            C++
-                        </span>
+        <select id="languageSelect" class="language-select">
 
-                        <span class="arrow">
-                            ▼
-                        </span>
+            <option value="c">C</option>
 
-                    </button>
+            <option value="cpp" selected>C++</option>
 
-                    <div
-                        id="languageMenu"
-                        class="language-menu">
+            <option value="java">Java</option>
 
-                        <button
-                            class="language-option"
-                            data-language="c"
-                            type="button">
+            <option value="python">Python</option>
 
-                            C
+        </select>
 
-                        </button>
+    </div>
 
-                        <button
-                            class="language-option active"
-                            data-language="cpp"
-                            type="button">
-
-                            C++
-
-                        </button>
-
-                        <button
-                            class="language-option"
-                            data-language="java"
-                            type="button">
-
-                            Java
-
-                        </button>
-
-                        <button
-                            class="language-option"
-                            data-language="python"
-                            type="button">
-
-                            Python
-
-                        </button>
-
-                    </div>
-
-                </div>
-
-            </div>
+</div>  
 
         </header>
 
