@@ -26,25 +26,32 @@ class SemanticAnalyzer {
     // ANALYZE
     // ==========================================
 
-    analyze() {
+   
+analyze() {
 
-        // Register user-defined functions first
-        this.registerFunctions(this.ast);
 
-        // Analyze complete AST
-        this.visit(this.ast);
+    this.registerFunctions(this.ast);
 
-        return {
 
-            errors: this.errors,
+    console.log("===== BEFORE SEMANTIC =====");
 
-            symbolTable:
-                this.symbolTable.getAllSymbols()
 
-        };
+    this.visit(this.ast);
 
-    }
 
+    console.log("===== AFTER SEMANTIC =====");
+
+
+    return {
+
+        errors:this.errors,
+
+        symbolTable:
+        this.symbolTable.getAllSymbols()
+
+    };
+
+}
 
     // ==========================================
     // REGISTER USER FUNCTIONS
@@ -170,10 +177,12 @@ class SemanticAnalyzer {
 
     break;
 
-    case "ScanfStatement":
-           this.symbolTable[node.variable] = "int";
+    case "CallExpression":
 
-    break;
+    this.checkFunctionCall(node);
+
+break;
+
 
 
             // ==================================
@@ -245,19 +254,11 @@ class SemanticAnalyzer {
                 }
 
 
-                if (
-                    node.body &&
-                    Array.isArray(
-                        node.body.body
-                    )
-                ) {
+        if(node.body){
 
-                    node.body.body.forEach(
-                        statement =>
-                            this.visit(statement)
-                    );
+    this.visit(node.body);
 
-                }
+}
 
 
                 this.symbolTable.exitScope();
@@ -332,10 +333,11 @@ class SemanticAnalyzer {
                     )
                 ) {
 
-                    node.body.body.forEach(
-                        statement =>
-                            this.visit(statement)
-                    );
+                   if(node.body){
+
+    this.visit(node.body);
+
+}
 
                 }
 
@@ -349,45 +351,85 @@ class SemanticAnalyzer {
 
             }
 
+            case "ScanfStatement":
+
+    if(Array.isArray(node.variables)){
+
+        node.variables.forEach(variable=>{
+
+            const symbol =
+                this.symbolTable.lookup(variable);
+
+
+            if(!symbol){
+
+                this.addError(
+                    `Variable '${variable}' not declared`,
+                    0
+                );
+
+            }
+
+        });
+
+    }
+
+break;
 
             // ==================================
             // BLOCK
             // ==================================
 
-            case "Block": {
+case "Block": {
 
-                this.symbolTable.enterScope();
 
-                if (
-                    Array.isArray(
-                        node.body
-                    )
-                ) {
+    if(Array.isArray(node.body)) {
 
-                    node.body.forEach(
-                        statement =>
-                            this.visit(statement)
-                    );
+        node.body.forEach(
+            statement =>
+                this.visit(statement)
+        );
 
-                }
+    }
 
-                this.symbolTable.exitScope();
 
-                break;
+    break;
 
-            }
-
+}
 
             // ==================================
             // VARIABLE DECLARATION
             // ==================================
 
-            case "VariableDeclaration":
 
-                this.checkDeclaration(node);
+case "VariableDeclaration": {
 
-                break;
 
+    this.checkDeclaration(node);
+
+
+    if(Array.isArray(node.variables)){
+
+
+        node.variables.forEach(variable=>{
+
+
+            if(variable.value){
+
+                this.visit(variable.value);
+
+            }
+
+
+        });
+
+
+    }
+
+
+    break;
+
+}
 
             // ==================================
             // ASSIGNMENT
@@ -446,67 +488,55 @@ class SemanticAnalyzer {
                 break;
 
         }
+        
+
+    }
+    
+
+
+    // ==========================================
+    // DECLARATION
+    // ==========================================
+
+   checkDeclaration(node) {
+
+
+    if(!Array.isArray(node.variables)){
+        return;
+    }
+
+node.variables.forEach(variable=>{
+
+
+    if(!variable.name){
+        return;
+    }
+
+
+    let variableType =
+        node.dataType || "int";
+
+
+    if(variable.isArray){
+
+        variableType =
+            variableType + "[]";
 
     }
 
 
-    // ==========================================
-    // VARIABLE DECLARATION
-    // ==========================================
-
-    checkDeclaration(node) {
-
-        const result =
-            this.symbolTable.declare(
-                node.identifier,
-                node.dataType,
-                node.line || 0,
-                "variable"
-            );
+    const result =
+        this.symbolTable.declare(
+            variable.name,
+            variableType,
+            0,
+            "variable"
+        );
 
 
-        if (!result.success) {
-
-            this.addError(
-                result.error,
-                node.line || 0
-            );
-
-            return;
-
-        }
-
-
-        if (node.value) {
-
-            const valueType =
-                this.getExpressionType(
-                    node.value
-                );
-
-
-            if (
-                valueType &&
-                node.dataType &&
-                valueType !== node.dataType
-            ) {
-
-                this.addError(
-                    `Cannot initialize '${node.dataType}' ` +
-                    `with '${valueType}'`,
-                    node.line || 0
-                );
-
-            }
-
-
-            this.checkExpression(
-                node.value
-            );
-
-        }
-
-    }
+});
+   
+}
 
 
     // ==========================================

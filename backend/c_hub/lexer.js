@@ -43,7 +43,8 @@ const TokenType = {
     DOT: "DOT",
 
 
-    EOF: "EOF"
+    EOF: "EOF",
+  
 
 };
 
@@ -78,7 +79,8 @@ const KEYWORDS = [
 
     "for",
     "do",
-    "scanf"
+    "scanf",
+      "char"
 
 
 ];
