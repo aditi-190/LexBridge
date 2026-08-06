@@ -101,6 +101,74 @@ class TACGenerator {
         break;
       }
 
+      // FIX/NEW: ForStatement had no TAC generation at all before.
+      // Desugars `for varName in range(...)` into an equivalent
+      // counter-based while loop. Supports range(stop),
+      // range(start, stop) and range(start, stop, step) — assumes a
+      // positive step (covers the standard "basic for loop" case).
+      case "ForStatement": {
+        const args = (node.iterable && node.iterable.args) || [];
+        let startExpr, stopExpr, stepExpr;
+
+        if (args.length <= 1) {
+          startExpr = { type: "Literal", value: 0 };
+          stopExpr = args[0] || { type: "Literal", value: 0 };
+          stepExpr = { type: "Literal", value: 1 };
+        } else if (args.length === 2) {
+          startExpr = args[0];
+          stopExpr = args[1];
+          stepExpr = { type: "Literal", value: 1 };
+        } else {
+          startExpr = args[0];
+          stopExpr = args[1];
+          stepExpr = args[2];
+        }
+
+        const startVal = this.generateExpr(startExpr);
+        this.emit({ op: "=", arg1: startVal, result: node.varName });
+
+        const startLabel = this.newLabel();
+        const endLabel = this.newLabel();
+        this.emit({ op: "LABEL", result: startLabel });
+
+        const stopVal = this.generateExpr(stopExpr);
+        const condTemp = this.newTemp();
+        this.emit({ op: "<", arg1: node.varName, arg2: stopVal, result: condTemp });
+        this.emit({ op: "IFFALSE", arg1: condTemp, result: endLabel });
+
+        if (node.body) {
+          node.body.forEach((stmt) => this.generate(stmt));
+        }
+
+        const stepVal = this.generateExpr(stepExpr);
+        const nextTemp = this.newTemp();
+        this.emit({ op: "+", arg1: node.varName, arg2: stepVal, result: nextTemp });
+        this.emit({ op: "=", arg1: nextTemp, result: node.varName });
+
+        this.emit({ op: "GOTO", result: startLabel });
+        this.emit({ op: "LABEL", result: endLabel });
+        break;
+      }
+
+      // NEW: DoWhileStatement (custom extension) — body always runs at
+      // least once, then loops back while the condition holds.
+      case "DoWhileStatement": {
+        const startLabel = this.newLabel();
+        const endLabel = this.newLabel();
+
+        this.emit({ op: "LABEL", result: startLabel });
+
+        if (node.body) {
+          node.body.forEach((stmt) => this.generate(stmt));
+        }
+
+        const condTemp = this.generateExpr(node.test);
+        this.emit({ op: "IFFALSE", arg1: condTemp, result: endLabel });
+        this.emit({ op: "GOTO", result: startLabel });
+        this.emit({ op: "LABEL", result: endLabel });
+        break;
+      }
+
       case "ReturnStatement": {
         const retTemp = this.generateExpr(node.argument);
         this.emit({ op: "RETURN", arg1: retTemp });
@@ -122,7 +190,15 @@ class TACGenerator {
     }
 
     if (node.type === "Literal") {
-      return node.value;
+      // FIX: string literals were emitted into TAC as bare values
+      // (e.g. `" "` became just the string " "), indistinguishable from
+      // a plain variable-name lookup. getValue() would then try
+      // Number(" ") — which JS evaluates to 0 — silently turning a
+      // space literal into the number 0 (e.g. "Hello" + " " + "World"
+      // became "Hello0World"). Wrapping string literals in real quote
+      // characters here lets getValue() recognize and unwrap them
+      // instead of guessing.
+      return typeof node.value === "string" ? JSON.stringify(node.value) : node.value;
     }
 
     if (node.type === "Identifier") {
@@ -133,8 +209,16 @@ class TACGenerator {
       const left = this.generateExpr(node.left);
       const right = this.generateExpr(node.right);
       const temp = this.newTemp();
-    
+
       this.emit({ op: node.op, arg1: left, arg2: right, result: temp });
+      return temp;
+    }
+
+    // FIX/NEW: UnaryExpression ("not x") had no TAC generation at all.
+    if (node.type === "UnaryExpression") {
+      const val = this.generateExpr(node.argument);
+      const temp = this.newTemp();
+      this.emit({ op: "not", arg1: val, result: temp });
       return temp;
     }
 

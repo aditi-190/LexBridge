@@ -1,7 +1,6 @@
 class TargetCodeGenerator {
   generate(tacInstructions) {
     const assembly = [];
-
     for (const inst of tacInstructions) {
       switch (inst.op) {
         case "=":
@@ -28,6 +27,15 @@ class TargetCodeGenerator {
           assembly.push(`CMP ${inst.arg1}, ${inst.arg2}`);
           assembly.push(`SET${inst.op} ${inst.result}`);
           break;
+        case "and":
+          assembly.push(`AND ${inst.arg1}, ${inst.arg2} -> ${inst.result}`);
+          break;
+        case "or":
+          assembly.push(`OR ${inst.arg1}, ${inst.arg2} -> ${inst.result}`);
+          break;
+        case "not":
+          assembly.push(`NOT ${inst.arg1} -> ${inst.result}`);
+          break;
         case "PARAM":
           assembly.push(`PUSH ${inst.arg1}`);
           break;
@@ -47,9 +55,7 @@ class TargetCodeGenerator {
           break;
       }
     }
-
     return assembly.join("\n");
   }
 }
-
 module.exports = TargetCodeGenerator;

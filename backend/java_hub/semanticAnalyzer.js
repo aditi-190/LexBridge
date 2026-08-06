@@ -1,167 +1,400 @@
+const SymbolTable = require("./symbolTable");
+
 class SemanticAnalyzer {
     constructor() {
+        this.currentScope = new SymbolTable();
         this.errors = [];
-        this.currentSymbolTable = {};
-        this.functionTable = {};
+        this.setupBuiltInFunctions();
+    }
+    setupBuiltInFunctions() {
+        this.currentScope.define("print", {
+            category: "function",
+            returnType: "void",
+            params: [{ dataType: "ANY" }]
+        });
+
+        // NEW: real-Java output builtins
+        this.currentScope.define("System.out.println", {
+            category: "function",
+            returnType: "void",
+            params: [{ dataType: "ANY" }]
+        });
+        this.currentScope.define("System.out.print", {
+            category: "function",
+            returnType: "void",
+            params: [{ dataType: "ANY" }]
+        });
+    }
+
+    addError(message) {
+        this.errors.push(message);
     }
 
     analyze(ast) {
-        this.errors = [];
-        this.currentSymbolTable = {};
-        this.functionTable = {};
-
         if (!ast || ast.type !== "Program") {
-            this.errors.push("Invalid AST Structure");
-            return { isValid: false, errors: this.errors };
+            throw new Error("Invalid AST Root");
         }
-
-        for (const stmt of ast.body) {
-            if (stmt.type === "FunctionDeclaration") {
-                this.functionTable[stmt.name] = {
-                    returnType: stmt.returnType,
-                    params: stmt.params || []
-                };
-            }
-        }
-
-        for (const stmt of ast.body) {
-            this.analyzeNode(stmt);
-        }
-
+        this.visitProgram(ast);
         return {
             isValid: this.errors.length === 0,
-            errors: this.errors
+            errors: this.errors,
+            symbolTable: this.currentScope ? this.currentScope.toObject() : null
         };
     }
 
-    analyzeNode(node) {
+    visitProgram(node) {
+        for (const statement of node.body) {
+            this.visitStatement(statement);
+        }
+    }
+
+    visitStatement(node) {
         if (!node) return;
 
         switch (node.type) {
             case "VariableDeclaration":
-                if (this.currentSymbolTable[node.identifier || node.name]) {
-                    this.errors.push(`Variable '${node.identifier || node.name}' is already declared.`);
-                } else {
-                    this.currentSymbolTable[node.identifier || node.name] = node.dataType || "int";
-                }
-                if (node.value) {
-                    this.analyzeNode(node.value);
-                }
+                this.visitVariableDeclaration(node);
                 break;
-
             case "Assignment":
-                if (!this.currentSymbolTable[node.identifier || node.name]) {
-                    this.errors.push(`Variable '${node.identifier || node.name}' is not declared.`);
-                }
-                if (node.value) {
-                    this.analyzeNode(node.value);
-                }
+                this.visitAssignment(node);
                 break;
-
-            case "Identifier":
-                if (!this.currentSymbolTable[node.name || node.identifier]) {
-                    this.errors.push(`Variable '${node.name || node.identifier}' is not declared.`);
-                }
+            case "FunctionDeclaration":
+                this.visitFunctionDeclaration(node);
                 break;
+            case "FunctionCall":
+                this.visitFunctionCall(node);
+                break;
+            case "IfStatement":
+                this.visitIfStatement(node);
+                break;
+            case "WhileStatement":
+                this.visitWhileStatement(node);
+                break;
+            case "ForStatement":
+                this.visitForStatement(node);
+                break;
+            case "Block":
+                this.visitBlock(node);
+                break;
+            case "ReturnStatement":
+                this.visitReturnStatement(node);
+                break;
+            // NEW cases
+            case "ArrayDeclaration":
+                this.visitArrayDeclaration(node);
+                break;
+            case "ArrayAssignment":
+                this.visitArrayAssignment(node);
+                break;
+            case "SwitchStatement":
+                this.visitSwitchStatement(node);
+                break;
+            case "BreakStatement":
+                // nothing to check
+                break;
+            case "UpdateExpression":
+                this.visitUpdateExpression(node);
+                break;
+            default:
+                break;
+        }
+    }
 
-            case "FunctionDeclaration": {
-                const outerSymbolTable = { ...this.currentSymbolTable };
+    visitVariableDeclaration(node) {
+        const success = this.currentScope.define(node.identifier, {
+            category: "variable",
+            dataType: node.dataType
+        });
 
-                if (node.params && Array.isArray(node.params)) {
-                    for (const param of node.params) {
-                        const paramName = typeof param === 'string' 
-                            ? param 
-                            : (param.identifier || param.name || param.id || param.varName);
-                            
-                        const paramType = (typeof param === 'object' && (param.dataType || param.type)) 
-                            ? (param.dataType || param.type) 
-                            : "int";
+        if (!success) {
+            this.addError(`Redeclaration Error: Variable '${node.identifier}' is already declared in this scope.`);
+        }
 
-                        if (paramName) {
-                            this.currentSymbolTable[paramName] = paramType;
-                        }
+        if (node.value) {
+            const valueType = this.visitExpression(node.value);
+            if (valueType && !this.isTypeCompatible(node.dataType, valueType)) {
+                this.addError(`Type Mismatch Error: Cannot assign type '${valueType}' to '${node.dataType}' variable '${node.identifier}'.`);
+            }
+        }
+    }
+
+    visitAssignment(node) {
+        const symbol = this.currentScope.lookup(node.identifier);
+        if (!symbol) {
+            this.addError(`Undeclared Variable Error: Variable '${node.identifier}' is used before declaration.`);
+            return;
+        }
+
+        if (symbol.category !== "variable") {
+            this.addError(`Invalid Assignment: '${node.identifier}' is a function, not a variable.`);
+            return;
+        }
+
+        const exprType = this.visitExpression(node.value);
+        if (exprType && !this.isTypeCompatible(symbol.dataType, exprType)) {
+            this.addError(`Type Mismatch Error: Cannot assign '${exprType}' to '${symbol.dataType}' variable '${node.identifier}'.`);
+        }
+    }
+
+    visitFunctionDeclaration(node) {
+        const success = this.currentScope.define(node.name, {
+            category: "function",
+            returnType: node.returnType,
+            params: node.params
+        });
+
+        if (!success) {
+            this.addError(`Redeclaration Error: Function '${node.name}' is already defined.`);
+        }
+
+        const previousScope = this.currentScope;
+        this.currentScope = new SymbolTable(previousScope);
+
+        for (const param of node.params) {
+            this.currentScope.define(param.identifier, {
+                category: "variable",
+                dataType: param.dataType
+            });
+        }
+
+        if (node.body) {
+            this.visitBlock(node.body, false); // Don't create double scope
+        }
+
+        this.currentScope = previousScope;
+    }
+
+    visitBlock(node, createNewScope = true) {
+        let previousScope = this.currentScope;
+        if (createNewScope) {
+            this.currentScope = new SymbolTable(previousScope);
+        }
+
+        for (const stmt of node.statements) {
+            this.visitStatement(stmt);
+        }
+
+        if (createNewScope) {
+            this.currentScope = previousScope;
+        }
+    }
+
+    visitIfStatement(node) {
+        const condType = this.visitExpression(node.condition);
+        if (condType && condType !== "boolean" && condType !== "BOOLEAN") {
+            this.addError(`Type Error: 'if' condition must evaluate to boolean, found '${condType}'.`);
+        }
+        this.visitStatement(node.thenBranch);
+        if (node.elseBranch) {
+            this.visitStatement(node.elseBranch);
+        }
+    }
+
+    visitWhileStatement(node) {
+        const condType = this.visitExpression(node.condition);
+        if (condType && condType !== "boolean" && condType !== "BOOLEAN") {
+            this.addError(`Type Error: 'while' condition must evaluate to boolean, found '${condType}'.`);
+        }
+        this.visitStatement(node.body);
+    }
+
+    visitForStatement(node) {
+        const previousScope = this.currentScope;
+        this.currentScope = new SymbolTable(previousScope);
+
+        if (node.init) this.visitStatement(node.init);
+        if (node.condition) {
+            const condType = this.visitExpression(node.condition);
+            if (condType && condType !== "boolean" && condType !== "BOOLEAN") {
+                this.addError(`Type Error: 'for' condition must evaluate to boolean, found '${condType}'.`);
+            }
+        }
+        if (node.update) this.visitStatement(node.update);
+        this.visitStatement(node.body);
+
+        this.currentScope = previousScope;
+    }
+
+    visitReturnStatement(node) {
+        if (node.value) {
+            this.visitExpression(node.value);
+        }
+    }
+
+    
+    visitArrayDeclaration(node) {
+        const success = this.currentScope.define(node.identifier, {
+            category: "variable",
+            dataType: node.dataType,
+            isArray: true
+        });
+
+        if (!success) {
+            this.addError(`Redeclaration Error: Array '${node.identifier}' is already declared in this scope.`);
+        }
+
+        if (node.elements) {
+            for (const el of node.elements) {
+                const elType = this.visitExpression(el);
+                if (elType && !this.isTypeCompatible(node.dataType, elType)) {
+                    this.addError(`Type Mismatch Error: Array '${node.identifier}' expects '${node.dataType}' elements, found '${elType}'.`);
+                }
+            }
+        }
+        if (node.size) {
+            this.visitExpression(node.size);
+        }
+    }
+
+    visitArrayAssignment(node) {
+        const symbol = this.currentScope.lookup(node.name);
+        if (!symbol) {
+            this.addError(`Undeclared Variable Error: Array '${node.name}' is used before declaration.`);
+            return;
+        }
+        this.visitExpression(node.index);
+        this.visitExpression(node.value);
+    }
+
+    visitSwitchStatement(node) {
+        this.visitExpression(node.discriminant);
+
+        for (const c of node.cases) {
+            if (c.test) this.visitExpression(c.test);
+            for (const stmt of c.body) {
+                this.visitStatement(stmt);
+            }
+        }
+
+        if (node.defaultCase) {
+            for (const stmt of node.defaultCase.body) {
+                this.visitStatement(stmt);
+            }
+        }
+    }
+
+    visitUpdateExpression(node) {
+        const symbol = this.currentScope.lookup(node.identifier);
+        if (!symbol) {
+            this.addError(`Undeclared Variable Error: Variable '${node.identifier}' is used before declaration.`);
+        }
+    }
+
+    visitExpression(node) {
+        if (!node) return null;
+
+        switch (node.type) {
+            case "Literal":
+                return this.normalizeType(node.rawType || typeof node.value);
+
+            case "Identifier": {
+                const symbol = this.currentScope.lookup(node.name);
+                if (!symbol) {
+                    this.addError(`Undeclared Identifier Error: '${node.name}' is not defined.`);
+                    return null;
+                }
+                return symbol.dataType;
+            }
+
+            case "BinaryExpression": {
+                const leftType = this.visitExpression(node.left);
+                const rightType = this.visitExpression(node.right);
+
+                if (["==", "!=", "<", ">", "<=", ">="].includes(node.operator)) {
+                    if (leftType && rightType && !this.isTypeCompatible(leftType, rightType)) {
+                        this.addError(`Type Error: Cannot compare type '${leftType}' with '${rightType}'.`);
                     }
+                    return "boolean";
                 }
-
-                if (node.body) {
-                    this.analyzeNode(node.body);
+                // FIX: && and || had no type-checking branch at all, so
+                // `a > 0 && b > 0` fell through to int/float inference.
+                if (["&&", "||"].includes(node.operator)) {
+                    return "boolean";
                 }
-
-                this.currentSymbolTable = outerSymbolTable;
-                break;
+                if (leftType === "float" || rightType === "float") return "float";
+                if (leftType === "string" || rightType === "string") return "string";
+                return "int";
             }
 
             case "FunctionCall":
-                if (
-                    node.name !== "print" &&
-                    node.name !== "System.out.println" &&
-                    node.name !== "System.out.print" &&
-                    node.name !== "sc.close" &&
-                    node.name !== "close" &&
-                    !node.name.startsWith("sc.") && 
-                    !this.functionTable[node.name]
-                ) {
-                    this.errors.push(`Undeclared Function Error: Function '${node.name}' is not defined.`);
+                return this.visitFunctionCall(node);
+
+            // NEW: arr[i] used inside an expression
+            case "ArrayAccess": {
+                const symbol = this.currentScope.lookup(node.name);
+                if (!symbol) {
+                    this.addError(`Undeclared Identifier Error: Array '${node.name}' is not defined.`);
+                    return null;
                 }
-                if (node.arguments) {
-                    for (const arg of node.arguments) {
-                        this.analyzeNode(arg);
-                    }
-                }
-                break;
+                this.visitExpression(node.index);
+                return symbol.dataType;
+            }
 
-            case "BinaryExpression":
-                this.analyzeNode(node.left);
-                this.analyzeNode(node.right);
-                break;
-
-            case "IfStatement":
-                this.analyzeNode(node.condition);
-                this.analyzeNode(node.thenBranch);
-                if (node.elseBranch) this.analyzeNode(node.elseBranch);
-                break;
-
-            case "WhileStatement":
-            case "DoWhileStatement":
-            case "ForStatement":
-                if (node.init) this.analyzeNode(node.init);
-                if (node.condition) this.analyzeNode(node.condition);
-                if (node.update) this.analyzeNode(node.update);
-                if (node.body) this.analyzeNode(node.body);
-                break;
-
-            case "Block":
-                if (node.statements) {
-                    for (const stmt of node.statements) {
-                        this.analyzeNode(stmt);
-                    }
-                }
-                break;
-
-            case "ReturnStatement":
-                if (node.value) this.analyzeNode(node.value);
-                break;
-
-            case "ArrayDeclaration":
-                this.currentSymbolTable[node.identifier || node.name] = `${node.dataType || "int"}[]`;
-                if (node.size) this.analyzeNode(node.size);
-                break;
-
-            case "ArrayAccess":
-                if (!this.currentSymbolTable[node.name || node.identifier]) {
-                    this.errors.push(`Variable '${node.name || node.identifier}' is not declared.`);
-                }
-                if (node.index) this.analyzeNode(node.index);
-                break;
-
-            case "ArrayAssignment":
-                if (!this.currentSymbolTable[node.name || node.identifier]) {
-                    this.errors.push(`Variable '${node.name || node.identifier}' is not declared.`);
-                }
-                if (node.index) this.analyzeNode(node.index);
-                if (node.value) this.analyzeNode(node.value);
-                break;
+            default:
+                return null;
         }
+    }
+
+    visitFunctionCall(node) {
+        // NEW: Scanner reads, e.g. sc.nextInt(), input.nextLine(). The
+        // scanner variable name is arbitrary (sc, input, keyboard, ...),
+        // so this recognizes the *method suffix* rather than requiring
+        // every possible "<var>.nextX" combination to be pre-registered
+        // as a builtin under an exact, hardcoded name.
+        const scannerMatch = node.name.match(/\.(nextInt|nextDouble|nextFloat|nextLong|nextBoolean|nextLine|next)$/);
+        if (scannerMatch) {
+            const method = scannerMatch[1];
+            if (method === "nextInt" || method === "nextLong") return "int";
+            if (method === "nextDouble") return "double";
+            if (method === "nextFloat") return "float";
+            if (method === "nextBoolean") return "boolean";
+            return "string"; // nextLine() / next()
+        }
+
+        const symbol = this.currentScope.lookup(node.name);
+        if (!symbol) {
+            this.addError(`Undeclared Function Error: Function '${node.name}' is not defined.`);
+            return null;
+        }
+
+        if (symbol.category !== "function") {
+            this.addError(`Type Error: '${node.name}' is a variable, not a function.`);
+            return null;
+        }
+
+        if (symbol.params[0]?.dataType !== "ANY" && node.arguments.length !== symbol.params.length) {
+            this.addError(`Argument Error: Function '${node.name}' expects ${symbol.params.length} arguments, but received ${node.arguments.length}.`);
+        }
+
+        for (let i = 0; i < node.arguments.length; i++) {
+            const argType = this.visitExpression(node.arguments[i]);
+            const paramType = symbol.params[i]?.dataType;
+
+            if (paramType && paramType !== "ANY" && argType && !this.isTypeCompatible(paramType, argType)) {
+                this.addError(`Argument Type Error: Parameter ${i + 1} of '${node.name}' expects '${paramType}', found '${argType}'.`);
+            }
+        }
+
+        return symbol.returnType;
+    }
+
+    normalizeType(type) {
+        if (!type) return "int";
+        const t = String(type).toLowerCase();
+        if (t === "integer" || t === "number") return "int";
+        if (t === "bool") return "boolean";
+        if (t === "string") return "string";
+        return t;
+    }
+
+    isTypeCompatible(targetType, sourceType) {
+        const target = this.normalizeType(targetType);
+        const source = this.normalizeType(sourceType);
+
+        if (target === source) return true;
+        if (target === "float" && source === "int") return true; // Implicit conversion allowed
+        if (target === "double" && (source === "int" || source === "float")) return true;
+        return false;
     }
 }
 

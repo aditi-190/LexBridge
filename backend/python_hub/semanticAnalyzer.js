@@ -4,8 +4,11 @@ class SemanticAnalyzer {
     this.errors = [];
     this.symbolTable.add("print");
     this.symbolTable.add("input");
-    this.symbolTable.add("int"); 
-    this.symbolTable.add("str"); 
+    this.symbolTable.add("int");
+    this.symbolTable.add("str");
+    // FIX: "range" was never registered, so any `for i in range(n):`
+    // would trigger a bogus "Undeclared function 'range'" error.
+    this.symbolTable.add("range");
   }
 
   analyze(ast) {
@@ -64,6 +67,13 @@ class SemanticAnalyzer {
       return;
     }
 
+    // FIX: UnaryExpression ("not x") had no visit case, so it was
+    // silently skipped (its argument's variables never got checked).
+    if (node.type === "UnaryExpression") {
+      this.visit(node.argument);
+      return;
+    }
+
     if (node.type === "IfStatement") {
       this.visit(node.test);
       node.consequent.forEach((stmt) => this.visit(stmt));
@@ -76,6 +86,21 @@ class SemanticAnalyzer {
     if (node.type === "WhileStatement") {
       this.visit(node.test);
       node.body.forEach((stmt) => this.visit(stmt));
+      return;
+    }
+
+    // FIX: ForStatement had no visit case at all.
+    if (node.type === "ForStatement") {
+      this.symbolTable.add(node.varName);
+      this.visit(node.iterable);
+      node.body.forEach((stmt) => this.visit(stmt));
+      return;
+    }
+
+    // NEW: DoWhileStatement (custom extension).
+    if (node.type === "DoWhileStatement") {
+      node.body.forEach((stmt) => this.visit(stmt));
+      this.visit(node.test);
       return;
     }
   }

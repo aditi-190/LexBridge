@@ -25,7 +25,6 @@ class Parser {
     }
   }
 
-
   parseBlock() {
     this.consume("NEWLINE");
     this.consume("INDENT");
@@ -69,6 +68,15 @@ class Parser {
     if (token.type === "WHILE") {
       return this.parseWhileStatement();
     }
+    // FIX: `for` had no parsing path at all before.
+    if (token.type === "FOR") {
+      return this.parseForStatement();
+    }
+    // NEW (custom extension — Python has no native do-while, but the
+    // user asked for it): `do: <block> while <cond>`
+    if (token.type === "DO") {
+      return this.parseDoWhileStatement();
+    }
     return this.parseExpressionStatement();
   }
 
@@ -110,7 +118,32 @@ class Parser {
     const consequent = this.parseBlock();
 
     let alternate = null;
-    if (this.peek().type === "ELSE") {
+    // FIX: `elif` previously wasn't a token, so `if/elif/else` chains
+    // couldn't be written. It's modeled as a single nested IfStatement
+    // sitting inside `alternate`, which the TAC generator already knows
+    // how to walk (it just forEachs the array of alternate statements).
+    if (this.peek().type === "ELIF") {
+      alternate = [this.parseElifChain()];
+    } else if (this.peek().type === "ELSE") {
+      this.consume("ELSE");
+      this.consume("COLON");
+      alternate = this.parseBlock();
+    }
+
+    return { type: "IfStatement", test, consequent, alternate };
+  }
+
+  // Handles one `elif` and recurses for further `elif`/`else` that follow.
+  parseElifChain() {
+    this.consume("ELIF");
+    const test = this.parseExpression();
+    this.consume("COLON");
+    const consequent = this.parseBlock();
+
+    let alternate = null;
+    if (this.peek().type === "ELIF") {
+      alternate = [this.parseElifChain()];
+    } else if (this.peek().type === "ELSE") {
       this.consume("ELSE");
       this.consume("COLON");
       alternate = this.parseBlock();
@@ -127,6 +160,29 @@ class Parser {
     return { type: "WhileStatement", test, body };
   }
 
+  // FIX/NEW: `for i in range(...)`. Only `range(...)` iteration is
+  // supported (covers the common "basic for loop" case being asked for).
+  parseForStatement() {
+    this.consume("FOR");
+    const varName = this.consume("IDENTIFIER").value;
+    this.consume("IN");
+    const iterable = this.parseExpression();
+    this.consume("COLON");
+    const body = this.parseBlock();
+    return { type: "ForStatement", varName, iterable, body };
+  }
+
+  // NEW (custom extension): `do: <block> while <cond>`
+  parseDoWhileStatement() {
+    this.consume("DO");
+    this.consume("COLON");
+    const body = this.parseBlock();
+    this.consume("WHILE");
+    const test = this.parseExpression();
+    this.consumeStatementEnd();
+    return { type: "DoWhileStatement", test, body };
+  }
+
   parseExpressionStatement() {
     const expr = this.parseExpression();
     this.consumeStatementEnd();
@@ -138,7 +194,7 @@ class Parser {
   }
 
   parseAssignment() {
-    let expr = this.parseEquality();
+    let expr = this.parseLogicalOr();
 
     if (this.peek().type === "ASSIGN") {
       this.consume("ASSIGN");
@@ -146,6 +202,38 @@ class Parser {
       return { type: "AssignmentExpression", left: expr.name || expr.value, right };
     }
     return expr;
+  }
+
+  // FIX: `and` / `or` / `not` had no precedence level at all, so any
+  // boolean-logic expression (`a > 0 and b > 0`) failed to parse.
+  // Python precedence: or < and < not < comparisons.
+  parseLogicalOr() {
+    let expr = this.parseLogicalAnd();
+    while (this.peek().type === "OR") {
+      this.consume("OR");
+      const right = this.parseLogicalAnd();
+      expr = { type: "BinaryExpression", op: "or", left: expr, right };
+    }
+    return expr;
+  }
+
+  parseLogicalAnd() {
+    let expr = this.parseLogicalNot();
+    while (this.peek().type === "AND") {
+      this.consume("AND");
+      const right = this.parseLogicalNot();
+      expr = { type: "BinaryExpression", op: "and", left: expr, right };
+    }
+    return expr;
+  }
+
+  parseLogicalNot() {
+    if (this.peek().type === "NOT") {
+      this.consume("NOT");
+      const argument = this.parseLogicalNot();
+      return { type: "UnaryExpression", op: "not", argument };
+    }
+    return this.parseEquality();
   }
 
   parseEquality() {
@@ -201,6 +289,17 @@ class Parser {
       return { type: "Literal", value: token.value };
     }
 
+    // NEW: f-string support. Splits the raw template on {..}
+    // placeholders and builds a chain of "+" concatenations, reusing
+    // the existing string-concat machinery (no TAC/executor changes
+    // needed). Only bare identifiers or numeric literals are supported
+    // inside {..} — this covers the common case (e.g. {num1}) but not
+    // arbitrary expressions like {a + b}.
+    if (token.type === "FSTRING") {
+      this.consume("FSTRING");
+      return this.buildFStringExpression(token.value);
+    }
+
     if (token.type === "IDENTIFIER") {
       const name = this.consume("IDENTIFIER").value;
 
@@ -235,6 +334,43 @@ class Parser {
       `Unexpected token in expression: ${token.type}` +
       (token.line ? ` at line ${token.line}` : "")
     );
+  }
+
+  buildFStringExpression(template) {
+    const parts = [];
+    const regex = /\{([^}]*)\}/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = regex.exec(template)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push({ type: "Literal", value: template.slice(lastIndex, match.index) });
+      }
+      const exprSrc = match[1].trim();
+      if (/^-?[0-9]+(\.[0-9]+)?$/.test(exprSrc)) {
+        parts.push({
+          type: "Literal",
+          value: exprSrc.includes(".") ? parseFloat(exprSrc) : parseInt(exprSrc, 10)
+        });
+      } else {
+        parts.push({ type: "Identifier", name: exprSrc });
+      }
+      lastIndex = regex.lastIndex;
+    }
+
+    if (lastIndex < template.length) {
+      parts.push({ type: "Literal", value: template.slice(lastIndex) });
+    }
+
+    if (parts.length === 0) {
+      return { type: "Literal", value: "" };
+    }
+
+    let expr = parts[0];
+    for (let i = 1; i < parts.length; i++) {
+      expr = { type: "BinaryExpression", op: "+", left: expr, right: parts[i] };
+    }
+    return expr;
   }
 }
 

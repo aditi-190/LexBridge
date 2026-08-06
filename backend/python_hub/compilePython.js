@@ -54,6 +54,16 @@ function getValue(val, memory) {
   if (memory.hasOwnProperty(val)) {
     return memory[val];
   }
+  // FIX: unwrap quoted string literals (see tacGenerator.js Literal
+  // case) before falling back to numeric coercion — otherwise a literal
+  // like " " gets silently read as the number 0 via Number(" ") === 0.
+  if (typeof val === "string" && val.length >= 2 && val.startsWith('"') && val.endsWith('"')) {
+    try {
+      return JSON.parse(val);
+    } catch (e) {
+      return val.slice(1, -1);
+    }
+  }
   const parsed = Number(val);
   return !isNaN(parsed) ? parsed : val;
 }
@@ -151,6 +161,26 @@ function executeTAC(instructions, rawInput) {
         const v1 = getValue(inst.arg1, memory);
         const v2 = getValue(inst.arg2, memory);
         memory[inst.result] = v1 === v2;
+        break;
+      }
+      // FIX: "and" / "or" / "not" had no execution case at all, so any
+      // program using them compiled fine but silently produced
+      // `undefined` at runtime (fell through to `default: break`).
+      case "and": {
+        const v1 = getValue(inst.arg1, memory);
+        const v2 = getValue(inst.arg2, memory);
+        memory[inst.result] = !!(v1 && v2);
+        break;
+      }
+      case "or": {
+        const v1 = getValue(inst.arg1, memory);
+        const v2 = getValue(inst.arg2, memory);
+        memory[inst.result] = !!(v1 || v2);
+        break;
+      }
+      case "not": {
+        const v1 = getValue(inst.arg1, memory);
+        memory[inst.result] = !v1;
         break;
       }
       case "PARAM": {
