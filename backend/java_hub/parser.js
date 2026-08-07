@@ -9,10 +9,12 @@ class Parser {
         const tokenSpec = [
             { type: "SPACE", regex: /^\s+/ },
             { type: "COMMENT", regex: /^(\/\/[^\n]*|\/\*[\s\S]*?\*\/)/ },
-            { type: "KEYWORD", regex: /^(public|class|static|void|int|double|boolean|String|if|else|while|do|for|return|new|Scanner|import|break)\b/ },
+            { type: "KEYWORD", regex: /^(public|private|protected|class|static|void|int|double|float|char|long|short|byte|boolean|String|if|else|while|do|for|return|new|Scanner|import|break)\b/ },
             { type: "IDENTIFIER", regex: /^[a-zA-Z_][a-zA-Z0-9_.]*/ },
-            { type: "NUMBER", regex: /^\d+(\.\d+)?/ },
+        
+            { type: "NUMBER", regex: /^\d+(\.\d+)?[fFdDlL]?/ },
             { type: "STRING", regex: /^"[^"]*"/ },
+            { type: "CHAR", regex: /^'[^']*'/ },
             { type: "OPERATOR", regex: /^(==|!=|<=|>=|&&|\|\||\+\+|--|\+|-|\*|\/|%|=|<|>)/ },
             { type: "PUNCTUATION", regex: /^[{}(),;\[\]]/ }
         ];
@@ -27,7 +29,12 @@ class Parser {
                 if (match) {
                     matched = true;
                     if (type !== "SPACE" && type !== "COMMENT") {
-                        tokens.push({ type, value: match[0] });
+                        let value = match[0];
+                        if (type === "NUMBER") {
+                           
+                            value = value.replace(/[fFdDlL]$/, "");
+                        }
+                        tokens.push({ type, value });
                     }
                     cursor += match[0].length;
                     break;
@@ -200,7 +207,7 @@ class Parser {
     parseStatementNoSemicolon() {
         const token = this.peek();
 
-        if (["int", "double", "boolean", "String"].includes(token.value)) {
+        if (["int", "double", "float", "char", "long", "short", "byte", "boolean", "String"].includes(token.value)) {
             const dataType = this.consume().value;
             let isArray = false;
             if (this.match("[")) {
@@ -228,7 +235,36 @@ class Parser {
                 this.consume("=");
                 value = this.parseExpression();
             }
-            return { type: "VariableDeclaration", dataType, identifier: name, name, value };
+            const firstDecl = { type: "VariableDeclaration", dataType, identifier: name, name, value };
+
+            // Support Java's "int a = 10, b = 3, c;" — multiple declarators
+            // of the SAME type in one statement. The old code returned
+            // right after the first declarator, leaving the cursor sitting
+            // on the comma; the next parseStatement() call then tried to
+            // parse "," itself as a brand-new statement and threw
+            // "Unexpected token ','".
+            if (!this.match(",")) {
+                return firstDecl;
+            }
+
+            const declarations = [firstDecl];
+            while (this.match(",")) {
+                this.consume(",");
+                const nextName = this.consume().value;
+                let nextValue = null;
+                if (this.match("=")) {
+                    this.consume("=");
+                    nextValue = this.parseExpression();
+                }
+                declarations.push({
+                    type: "VariableDeclaration",
+                    dataType,
+                    identifier: nextName,
+                    name: nextName,
+                    value: nextValue
+                });
+            }
+            return { type: "MultiVariableDeclaration", declarations };
         }
 
         if (token.type === "IDENTIFIER") {
@@ -339,6 +375,11 @@ class Parser {
         if (token.type === "STRING") {
             const strVal = this.consume().value.slice(1, -1);
             return { type: "Literal", value: strVal, rawType: "STRING" };
+        }
+
+        if (token.type === "CHAR") {
+            const charVal = this.consume().value.slice(1, -1);
+            return { type: "Literal", value: charVal, rawType: "CHAR" };
         }
 
         if (token.value === "true" || token.value === "false") {

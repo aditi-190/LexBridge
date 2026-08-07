@@ -36,6 +36,9 @@ class TargetCodeGenerator {
         case "not":
           assembly.push(`NOT ${inst.arg1} -> ${inst.result}`);
           break;
+        case "NEG":
+          assembly.push(`NEG ${inst.arg1} -> ${inst.result}`);
+          break;
         case "PARAM":
           assembly.push(`PUSH ${inst.arg1}`);
           break;

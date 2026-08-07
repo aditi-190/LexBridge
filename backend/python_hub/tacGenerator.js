@@ -61,6 +61,14 @@ class TACGenerator {
         break;
       }
 
+      // NEW: `arr[i] = value`.
+      case "IndexAssignmentExpression": {
+        const idxVal = this.generateExpr(node.index);
+        const valTemp = this.generateExpr(node.right);
+        this.emit({ op: "ARRAY_SET", arg1: idxVal, arg2: valTemp, result: node.object });
+        break;
+      }
+
       case "IfStatement": {
         const condTemp = this.generateExpr(node.test);
         const falseLabel = this.newLabel();
@@ -101,11 +109,7 @@ class TACGenerator {
         break;
       }
 
-      // FIX/NEW: ForStatement had no TAC generation at all before.
-      // Desugars `for varName in range(...)` into an equivalent
-      // counter-based while loop. Supports range(stop),
-      // range(start, stop) and range(start, stop, step) — assumes a
-      // positive step (covers the standard "basic for loop" case).
+     
       case "ForStatement": {
         const args = (node.iterable && node.iterable.args) || [];
         let startExpr, stopExpr, stepExpr;
@@ -150,8 +154,7 @@ class TACGenerator {
         break;
       }
 
-      // NEW: DoWhileStatement (custom extension) — body always runs at
-      // least once, then loops back while the condition holds.
+   
       case "DoWhileStatement": {
         const startLabel = this.newLabel();
         const endLabel = this.newLabel();
@@ -190,14 +193,7 @@ class TACGenerator {
     }
 
     if (node.type === "Literal") {
-      // FIX: string literals were emitted into TAC as bare values
-      // (e.g. `" "` became just the string " "), indistinguishable from
-      // a plain variable-name lookup. getValue() would then try
-      // Number(" ") — which JS evaluates to 0 — silently turning a
-      // space literal into the number 0 (e.g. "Hello" + " " + "World"
-      // became "Hello0World"). Wrapping string literals in real quote
-      // characters here lets getValue() recognize and unwrap them
-      // instead of guessing.
+
       return typeof node.value === "string" ? JSON.stringify(node.value) : node.value;
     }
 
@@ -214,11 +210,10 @@ class TACGenerator {
       return temp;
     }
 
-    // FIX/NEW: UnaryExpression ("not x") had no TAC generation at all.
     if (node.type === "UnaryExpression") {
       const val = this.generateExpr(node.argument);
       const temp = this.newTemp();
-      this.emit({ op: "not", arg1: val, result: temp });
+      this.emit({ op: node.op === "-" ? "NEG" : "not", arg1: val, result: temp });
       return temp;
     }
 
@@ -231,6 +226,24 @@ class TACGenerator {
       }
       const temp = this.newTemp();
       this.emit({ op: "CALL", arg1: node.name, result: temp });
+      return temp;
+    }
+
+   
+    if (node.type === "ArrayLiteral") {
+      const arrTemp = this.newTemp();
+      this.emit({ op: "ARRAY_NEW", result: arrTemp });
+      node.elements.forEach((el) => {
+        const elVal = this.generateExpr(el);
+        this.emit({ op: "ARRAY_PUSH", arg1: elVal, result: arrTemp });
+      });
+      return arrTemp;
+    }
+
+    if (node.type === "ArrayAccess") {
+      const idxVal = this.generateExpr(node.index);
+      const temp = this.newTemp();
+      this.emit({ op: "ARRAY_GET", arg1: node.object, arg2: idxVal, result: temp });
       return temp;
     }
 

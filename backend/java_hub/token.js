@@ -23,7 +23,6 @@ module.exports = {
     SEMICOLON: "SEMICOLON",
     COMMA: "COMMA",
 
-    // NEW: needed for System.out.println (DOT) and switch-case (COLON)
     DOT: "DOT",
     COLON: "COLON",
 

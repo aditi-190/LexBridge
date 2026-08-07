@@ -114,8 +114,6 @@ function lexer(code) {
             });
             continue;
         }
-
-        // char literal: 'x' (single-quoted, exactly one character)
         if (char === "'") {
             let startColumn = column;
             i++;
@@ -132,7 +130,7 @@ function lexer(code) {
                 throw new Error(`Unterminated char literal at line ${line}`);
             }
 
-            i++; // consume closing quote
+            i++; 
             column++;
 
             tokens.push({
@@ -221,11 +219,9 @@ function lexer(code) {
             case ",":
                 tokens.push({ type: tokenTypes.COMMA, value: ",", line, column });
                 break;
-            // NEW: DOT for System.out.println / System.out.print
             case ".":
                 tokens.push({ type: tokenTypes.DOT, value: ".", line, column });
                 break;
-            // NEW: COLON for switch-case ("case 1:" / "default:")
             case ":":
                 tokens.push({ type: tokenTypes.COLON, value: ":", line, column });
                 break;

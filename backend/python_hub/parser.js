@@ -72,8 +72,7 @@ class Parser {
     if (token.type === "FOR") {
       return this.parseForStatement();
     }
-    // NEW (custom extension — Python has no native do-while, but the
-    // user asked for it): `do: <block> while <cond>`
+  
     if (token.type === "DO") {
       return this.parseDoWhileStatement();
     }
@@ -118,10 +117,7 @@ class Parser {
     const consequent = this.parseBlock();
 
     let alternate = null;
-    // FIX: `elif` previously wasn't a token, so `if/elif/else` chains
-    // couldn't be written. It's modeled as a single nested IfStatement
-    // sitting inside `alternate`, which the TAC generator already knows
-    // how to walk (it just forEachs the array of alternate statements).
+  
     if (this.peek().type === "ELIF") {
       alternate = [this.parseElifChain()];
     } else if (this.peek().type === "ELSE") {
@@ -133,7 +129,6 @@ class Parser {
     return { type: "IfStatement", test, consequent, alternate };
   }
 
-  // Handles one `elif` and recurses for further `elif`/`else` that follow.
   parseElifChain() {
     this.consume("ELIF");
     const test = this.parseExpression();
@@ -160,8 +155,6 @@ class Parser {
     return { type: "WhileStatement", test, body };
   }
 
-  // FIX/NEW: `for i in range(...)`. Only `range(...)` iteration is
-  // supported (covers the common "basic for loop" case being asked for).
   parseForStatement() {
     this.consume("FOR");
     const varName = this.consume("IDENTIFIER").value;
@@ -199,14 +192,20 @@ class Parser {
     if (this.peek().type === "ASSIGN") {
       this.consume("ASSIGN");
       const right = this.parseAssignment();
+    
+      if (expr.type === "ArrayAccess") {
+        return {
+          type: "IndexAssignmentExpression",
+          object: expr.object,
+          index: expr.index,
+          right
+        };
+      }
       return { type: "AssignmentExpression", left: expr.name || expr.value, right };
     }
     return expr;
   }
 
-  // FIX: `and` / `or` / `not` had no precedence level at all, so any
-  // boolean-logic expression (`a > 0 and b > 0`) failed to parse.
-  // Python precedence: or < and < not < comparisons.
   parseLogicalOr() {
     let expr = this.parseLogicalAnd();
     while (this.peek().type === "OR") {
@@ -267,13 +266,22 @@ class Parser {
   }
 
   parseMultiplicative() {
-    let expr = this.parsePrimary();
+    let expr = this.parseUnary();
     while (["STAR", "SLASH", "MOD"].includes(this.peek().type)) {
       const op = this.consume(this.peek().type).value;
-      const right = this.parsePrimary();
+      const right = this.parseUnary();
       expr = { type: "BinaryExpression", op, left: expr, right };
     }
     return expr;
+  }
+
+  parseUnary() {
+    if (this.peek().type === "MINUS") {
+      this.consume("MINUS");
+      const argument = this.parseUnary();
+      return { type: "UnaryExpression", op: "-", argument };
+    }
+    return this.parsePrimary();
   }
 
   parsePrimary() {
@@ -289,15 +297,26 @@ class Parser {
       return { type: "Literal", value: token.value };
     }
 
-    // NEW: f-string support. Splits the raw template on {..}
-    // placeholders and builds a chain of "+" concatenations, reusing
-    // the existing string-concat machinery (no TAC/executor changes
-    // needed). Only bare identifiers or numeric literals are supported
-    // inside {..} — this covers the common case (e.g. {num1}) but not
-    // arbitrary expressions like {a + b}.
     if (token.type === "FSTRING") {
       this.consume("FSTRING");
       return this.buildFStringExpression(token.value);
+    }
+
+    if (token.type === "LBRACKET") {
+      this.consume("LBRACKET");
+      const elements = [];
+      if (this.peek().type !== "RBRACKET") {
+        do {
+          elements.push(this.parseExpression());
+          if (this.peek().type === "COMMA") {
+            this.consume("COMMA");
+          } else {
+            break;
+          }
+        } while (true);
+      }
+      this.consume("RBRACKET");
+      return { type: "ArrayLiteral", elements };
     }
 
     if (token.type === "IDENTIFIER") {
@@ -318,6 +337,13 @@ class Parser {
         }
         this.consume("RPAREN");
         return { type: "CallExpression", name, args };
+      }
+
+      if (this.peek().type === "LBRACKET") {
+        this.consume("LBRACKET");
+        const index = this.parseExpression();
+        this.consume("RBRACKET");
+        return { type: "ArrayAccess", object: name, index };
       }
 
       return { type: "Identifier", name };

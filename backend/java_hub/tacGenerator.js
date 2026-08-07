@@ -65,6 +65,14 @@ class TACGenerator {
                 break;
             }
 
+        
+            case "MultiVariableDeclaration": {
+                for (const decl of node.declarations) {
+                    this.generateStatement(decl);
+                }
+                break;
+            }
+
             case "Assignment": {
                 const varName = node.identifier || node.name;
                 if (this.isScannerRead(node.value)) {

@@ -6,9 +6,10 @@ class SemanticAnalyzer {
     this.symbolTable.add("input");
     this.symbolTable.add("int");
     this.symbolTable.add("str");
-    // FIX: "range" was never registered, so any `for i in range(n):`
-    // would trigger a bogus "Undeclared function 'range'" error.
+  
     this.symbolTable.add("range");
+ 
+    this.symbolTable.add("len");
   }
 
   analyze(ast) {
@@ -45,6 +46,28 @@ class SemanticAnalyzer {
       return;
     }
 
+    if (node.type === "ArrayLiteral") {
+      node.elements.forEach((el) => this.visit(el));
+      return;
+    }
+
+    if (node.type === "ArrayAccess") {
+      if (!this.symbolTable.has(node.object)) {
+        this.errors.push(`SemanticError: Undeclared variable '${node.object}' used.`);
+      }
+      this.visit(node.index);
+      return;
+    }
+
+    if (node.type === "IndexAssignmentExpression") {
+      if (!this.symbolTable.has(node.object)) {
+        this.errors.push(`SemanticError: Undeclared variable '${node.object}' used.`);
+      }
+      this.visit(node.index);
+      this.visit(node.right);
+      return;
+    }
+
     if (node.type === "AssignmentExpression") {
       this.visit(node.right);
       this.symbolTable.add(node.left);
@@ -67,8 +90,7 @@ class SemanticAnalyzer {
       return;
     }
 
-    // FIX: UnaryExpression ("not x") had no visit case, so it was
-    // silently skipped (its argument's variables never got checked).
+
     if (node.type === "UnaryExpression") {
       this.visit(node.argument);
       return;
@@ -89,7 +111,6 @@ class SemanticAnalyzer {
       return;
     }
 
-    // FIX: ForStatement had no visit case at all.
     if (node.type === "ForStatement") {
       this.symbolTable.add(node.varName);
       this.visit(node.iterable);
@@ -97,7 +118,6 @@ class SemanticAnalyzer {
       return;
     }
 
-    // NEW: DoWhileStatement (custom extension).
     if (node.type === "DoWhileStatement") {
       node.body.forEach((stmt) => this.visit(stmt));
       this.visit(node.test);

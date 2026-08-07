@@ -54,9 +54,6 @@ function getValue(val, memory) {
   if (memory.hasOwnProperty(val)) {
     return memory[val];
   }
-  // FIX: unwrap quoted string literals (see tacGenerator.js Literal
-  // case) before falling back to numeric coercion — otherwise a literal
-  // like " " gets silently read as the number 0 via Number(" ") === 0.
   if (typeof val === "string" && val.length >= 2 && val.startsWith('"') && val.endsWith('"')) {
     try {
       return JSON.parse(val);
@@ -163,9 +160,7 @@ function executeTAC(instructions, rawInput) {
         memory[inst.result] = v1 === v2;
         break;
       }
-      // FIX: "and" / "or" / "not" had no execution case at all, so any
-      // program using them compiled fine but silently produced
-      // `undefined` at runtime (fell through to `default: break`).
+
       case "and": {
         const v1 = getValue(inst.arg1, memory);
         const v2 = getValue(inst.arg2, memory);
@@ -181,6 +176,36 @@ function executeTAC(instructions, rawInput) {
       case "not": {
         const v1 = getValue(inst.arg1, memory);
         memory[inst.result] = !v1;
+        break;
+      }
+      // NEW: unary minus (see UnaryExpression fix in tacGenerator.js).
+      case "NEG": {
+        const v1 = getValue(inst.arg1, memory);
+        memory[inst.result] = -v1;
+        break;
+      }
+    
+      case "ARRAY_NEW": {
+        memory[inst.result] = [];
+        break;
+      }
+      case "ARRAY_PUSH": {
+        const val = getValue(inst.arg1, memory);
+        if (!Array.isArray(memory[inst.result])) memory[inst.result] = [];
+        memory[inst.result].push(val);
+        break;
+      }
+      case "ARRAY_GET": {
+        const arr = memory[inst.arg1];
+        const idx = getValue(inst.arg2, memory);
+        memory[inst.result] = Array.isArray(arr) ? arr[idx] : undefined;
+        break;
+      }
+      case "ARRAY_SET": {
+        const idx = getValue(inst.arg1, memory);
+        const val = getValue(inst.arg2, memory);
+        if (!Array.isArray(memory[inst.result])) memory[inst.result] = [];
+        memory[inst.result][idx] = val;
         break;
       }
       case "PARAM": {
@@ -210,6 +235,14 @@ function executeTAC(instructions, rawInput) {
         } else if (inst.arg1 === "str") {
           const argVal = params.length > 0 ? params.shift() : "";
           memory[inst.result] = String(argVal);
+          params = [];
+        } else if (inst.arg1 === "len") {
+          // NEW: len(arr) / len(str) builtin.
+          const argVal = params.length > 0 ? params.shift() : undefined;
+          memory[inst.result] = (Array.isArray(argVal) || typeof argVal === "string")
+            ? argVal.length
+            : 0;
+          params = [];
         } else if (labels.hasOwnProperty(inst.arg1)) {
           callStack.push({ returnAddress: pc + 1, targetTemp: inst.result });
           pc = labels[inst.arg1];

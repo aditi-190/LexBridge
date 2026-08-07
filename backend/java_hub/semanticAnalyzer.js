@@ -54,6 +54,11 @@ class SemanticAnalyzer {
         switch (node.type) {
             case "VariableDeclaration":
                 this.visitVariableDeclaration(node);
+     
+            case "MultiVariableDeclaration":
+                for (const decl of node.declarations) {
+                    this.visitVariableDeclaration(decl);
+                }
                 break;
             case "Assignment":
                 this.visitAssignment(node);
@@ -221,7 +226,6 @@ class SemanticAnalyzer {
         }
     }
 
-    
     visitArrayDeclaration(node) {
         const success = this.currentScope.define(node.identifier, {
             category: "variable",
@@ -306,20 +310,20 @@ class SemanticAnalyzer {
                     }
                     return "boolean";
                 }
-                // FIX: && and || had no type-checking branch at all, so
-                // `a > 0 && b > 0` fell through to int/float inference.
+    
                 if (["&&", "||"].includes(node.operator)) {
                     return "boolean";
                 }
-                if (leftType === "float" || rightType === "float") return "float";
+           
                 if (leftType === "string" || rightType === "string") return "string";
+                if (leftType === "double" || rightType === "double") return "double";
+                if (leftType === "float" || rightType === "float") return "float";
                 return "int";
             }
 
             case "FunctionCall":
                 return this.visitFunctionCall(node);
 
-            // NEW: arr[i] used inside an expression
             case "ArrayAccess": {
                 const symbol = this.currentScope.lookup(node.name);
                 if (!symbol) {
@@ -336,11 +340,7 @@ class SemanticAnalyzer {
     }
 
     visitFunctionCall(node) {
-        // NEW: Scanner reads, e.g. sc.nextInt(), input.nextLine(). The
-        // scanner variable name is arbitrary (sc, input, keyboard, ...),
-        // so this recognizes the *method suffix* rather than requiring
-        // every possible "<var>.nextX" combination to be pre-registered
-        // as a builtin under an exact, hardcoded name.
+     
         const scannerMatch = node.name.match(/\.(nextInt|nextDouble|nextFloat|nextLong|nextBoolean|nextLine|next)$/);
         if (scannerMatch) {
             const method = scannerMatch[1];

@@ -58,8 +58,7 @@ class TargetCodeGenerator {
                 this.emit(`    CDQ`);
                 this.emit(`    IDIV ${this.formatOperand(arg2)}`);
             }
-            // FIX: '%' fell into this block via the includes() check above
-            // but had no emit branch, silently producing no instruction.
+
             if (op === "%") {
                 this.emit(`    CDQ`);
                 this.emit(`    IDIV ${this.formatOperand(arg2)}`);
@@ -83,9 +82,6 @@ class TargetCodeGenerator {
             return;
         }
 
-        // FIX: && / || had no assembly translation at all (fell through
-        // to nothing being emitted), leaving the "assembly" output
-        // silently missing instructions for any boolean-logic expression.
         if (op === "&&" || op === "||") {
             this.emit(`    MOV EAX, ${this.formatOperand(arg1)}`);
             this.emit(`    MOV EBX, ${this.formatOperand(arg2)}`);
@@ -124,7 +120,6 @@ class TargetCodeGenerator {
             return;
         }
 
-        // ── NEW: array ops ─────────────────────────────────────────
         if (op === "ARR_DECL") {
             this.emit(`    ; array ${result} declared, size ${arg1}`);
             return;
