@@ -106,8 +106,10 @@ class Lexer {
         else if (ident === "and") tokens.push({ type: "AND", value: "and", line: lineNo });
         else if (ident === "or") tokens.push({ type: "OR", value: "or", line: lineNo });
         else if (ident === "not") tokens.push({ type: "NOT", value: "not", line: lineNo });
-        else if (ident === "True") tokens.push({ type: "NUMBER", value: 1, line: lineNo });
-        else if (ident === "False") tokens.push({ type: "NUMBER", value: 0, line: lineNo });
+        else if (ident === "True") tokens.push({ type: "BOOLEAN", value: true, line: lineNo });
+        else if (ident === "False") tokens.push({ type: "BOOLEAN", value: false, line: lineNo });
+        else if (ident === "break") tokens.push({ type: "BREAK", value: "break", line: lineNo });
+        else if (ident === "continue") tokens.push({ type: "CONTINUE", value: "continue", line: lineNo });
         else tokens.push({ type: "IDENTIFIER", value: ident, line: lineNo });
         continue;
       }

@@ -3,6 +3,8 @@ class TACGenerator {
     this.instructions = [];
     this.tempCount = 0;
     this.labelCount = 0;
+
+    this.loopStack = [];
   }
 
   newTemp() {
@@ -100,12 +102,29 @@ class TACGenerator {
         const condTemp = this.generateExpr(node.test);
         this.emit({ op: "IFFALSE", arg1: condTemp, result: endLabel });
 
+        // NEW: continue -> re-check condition (startLabel), break -> endLabel
+        this.loopStack.push({ continueLabel: startLabel, breakLabel: endLabel });
         if (node.body) {
           node.body.forEach((stmt) => this.generate(stmt));
         }
+        this.loopStack.pop();
 
         this.emit({ op: "GOTO", result: startLabel });
         this.emit({ op: "LABEL", result: endLabel });
+        break;
+      }
+
+      case "BreakStatement": {
+        if (this.loopStack.length > 0) {
+          this.emit({ op: "GOTO", result: this.loopStack[this.loopStack.length - 1].breakLabel });
+        }
+        break;
+      }
+
+      case "ContinueStatement": {
+        if (this.loopStack.length > 0) {
+          this.emit({ op: "GOTO", result: this.loopStack[this.loopStack.length - 1].continueLabel });
+        }
         break;
       }
 
@@ -140,10 +159,15 @@ class TACGenerator {
         this.emit({ op: "<", arg1: node.varName, arg2: stopVal, result: condTemp });
         this.emit({ op: "IFFALSE", arg1: condTemp, result: endLabel });
 
+  
+        const continueLabel = this.newLabel();
+        this.loopStack.push({ continueLabel, breakLabel: endLabel });
         if (node.body) {
           node.body.forEach((stmt) => this.generate(stmt));
         }
+        this.loopStack.pop();
 
+        this.emit({ op: "LABEL", result: continueLabel });
         const stepVal = this.generateExpr(stepExpr);
         const nextTemp = this.newTemp();
         this.emit({ op: "+", arg1: node.varName, arg2: stepVal, result: nextTemp });
@@ -157,14 +181,19 @@ class TACGenerator {
    
       case "DoWhileStatement": {
         const startLabel = this.newLabel();
+        const continueLabel = this.newLabel();
         const endLabel = this.newLabel();
 
         this.emit({ op: "LABEL", result: startLabel });
 
+      
+        this.loopStack.push({ continueLabel, breakLabel: endLabel });
         if (node.body) {
           node.body.forEach((stmt) => this.generate(stmt));
         }
+        this.loopStack.pop();
 
+        this.emit({ op: "LABEL", result: continueLabel });
         const condTemp = this.generateExpr(node.test);
         this.emit({ op: "IFFALSE", arg1: condTemp, result: endLabel });
         this.emit({ op: "GOTO", result: startLabel });

@@ -1,35 +1,41 @@
-class Symbol {
-  constructor(name, type, value = null) {
-    this.name = name;
-    this.type = type;
-    this.value = value;
-  }
-}
-
 class SymbolTable {
-  constructor(parent = null) {
-    this.symbols = new Map();
-    this.parent = parent; 
-  }
-
-  define(name, type = "UNKNOWN", value = null) {
-    const symbol = new Symbol(name, type, value);
-    this.symbols.set(name, symbol);
-    return symbol;
-  }
-
-  lookup(name) {
-    if (this.symbols.has(name)) {
-      return this.symbols.get(name);
+    constructor(parent = null) {
+        this.symbols = new Map();
+        this.parent = parent;
     }
-    if (this.parent !== null) {
-      return this.parent.lookup(name);
+
+    define(name, info) {
+        if (this.symbols.has(name)) {
+            return false; // already declared in this scope
+        }
+        this.symbols.set(name, info);
+        return true;
     }
-    return null;
-  }
-  lookupLocal(name) {
-    return this.symbols.get(name) || null;
-  }
+
+    lookup(name) {
+        if (this.symbols.has(name)) {
+            return this.symbols.get(name);
+        }
+        if (this.parent !== null) {
+            return this.parent.lookup(name);
+        }
+        return null;
+    }
+
+    lookupLocal(name) {
+        return this.symbols.get(name) || null;
+    }
+
+    toObject() {
+        const symbolsObj = {};
+        for (const [name, info] of this.symbols.entries()) {
+            symbolsObj[name] = info;
+        }
+        return {
+            symbols: symbolsObj,
+            parent: this.parent ? this.parent.toObject() : null
+        };
+    }
 }
 
 module.exports = SymbolTable;

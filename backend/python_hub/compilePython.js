@@ -49,10 +49,45 @@ function compileAndExecutePython(code, inputData = "") {
     };
   }
 }
+class PyFloat extends Number {
+  toString() {
+    const n = this.valueOf();
+    return Number.isInteger(n) ? n.toFixed(1) : String(n);
+  }
+}
+function unwrapFloat(v) {
+  return v instanceof PyFloat ? v.valueOf() : v;
+}
+class Frame {
+  constructor(parent = null) {
+    this.vars = Object.create(null);
+    this.parent = parent;
+  }
+  has(name) {
+    if (Object.prototype.hasOwnProperty.call(this.vars, name)) return true;
+    return this.parent ? this.parent.has(name) : false;
+  }
+  get(name) {
+    if (Object.prototype.hasOwnProperty.call(this.vars, name)) return this.vars[name];
+    return this.parent ? this.parent.get(name) : undefined;
+  }
+  set(name, value) {
+    this.vars[name] = value;
+  }
+}
+function formatForOutput(v) {
+  if (v instanceof PyFloat) return v.toString();
+  if (typeof v === "boolean") return v ? "True" : "False";
+  if (Array.isArray(v)) return "[" + v.map(formatForOutput).join(", ") + "]";
+  return String(v);
+}
 
-function getValue(val, memory) {
-  if (memory.hasOwnProperty(val)) {
-    return memory[val];
+function getValue(val, frame) {
+  if (typeof val === "boolean") {
+    return val;
+  }
+  if (frame.has(val)) {
+    return frame.get(val);
   }
   if (typeof val === "string" && val.length >= 2 && val.startsWith('"') && val.endsWith('"')) {
     try {
@@ -66,7 +101,8 @@ function getValue(val, memory) {
 }
 
 function executeTAC(instructions, rawInput) {
-  const memory = {};
+  const globalFrame = new Frame(null);
+  let frame = globalFrame; 
   const output = [];
   let params = [];
   const callStack = [];
@@ -77,7 +113,7 @@ function executeTAC(instructions, rawInput) {
     .filter((item) => item !== "");
 
   let pc = 0;
-  let maxInstructions = 50000;
+  let maxInstructions = 2000000;
   let stepCount = 0;
 
   const labels = {};
@@ -97,173 +133,190 @@ function executeTAC(instructions, rawInput) {
 
     switch (inst.op) {
       case "=": {
-        memory[inst.result] = getValue(inst.arg1, memory);
+        frame.set(inst.result, getValue(inst.arg1, frame));
         break;
       }
       case "+": {
-        const v1 = getValue(inst.arg1, memory);
-        const v2 = getValue(inst.arg2, memory);
-        memory[inst.result] = v1 + v2;
+        const v1 = getValue(inst.arg1, frame);
+        const v2 = getValue(inst.arg2, frame);
+        if (typeof v1 === "string" || typeof v2 === "string") {
+          frame.set(inst.result, formatForOutput(v1) + formatForOutput(v2));
+        } else {
+          const sum = Number(v1) + Number(v2);
+          frame.set(inst.result, (v1 instanceof PyFloat || v2 instanceof PyFloat) ? new PyFloat(sum) : sum);
+        }
         break;
       }
       case "-": {
-        const v1 = getValue(inst.arg1, memory);
-        const v2 = getValue(inst.arg2, memory);
-        memory[inst.result] = v1 - v2;
+        const v1 = getValue(inst.arg1, frame);
+        const v2 = getValue(inst.arg2, frame);
+        const diff = Number(v1) - Number(v2);
+        frame.set(inst.result, (v1 instanceof PyFloat || v2 instanceof PyFloat) ? new PyFloat(diff) : diff);
         break;
       }
       case "*": {
-        const v1 = getValue(inst.arg1, memory);
-        const v2 = getValue(inst.arg2, memory);
-        memory[inst.result] = v1 * v2;
+        const v1 = getValue(inst.arg1, frame);
+        const v2 = getValue(inst.arg2, frame);
+        const prod = Number(v1) * Number(v2);
+        frame.set(inst.result, (v1 instanceof PyFloat || v2 instanceof PyFloat) ? new PyFloat(prod) : prod);
         break;
       }
       case "/": {
-        const v1 = getValue(inst.arg1, memory);
-        const v2 = getValue(inst.arg2, memory);
-        memory[inst.result] = v1 / v2;
+        const v1 = getValue(inst.arg1, frame);
+        const v2 = getValue(inst.arg2, frame);
+        frame.set(inst.result, new PyFloat(Number(v1) / Number(v2)));
         break;
       }
       case "%": {
-        const v1 = getValue(inst.arg1, memory);
-        const v2 = getValue(inst.arg2, memory);
-        memory[inst.result] = v1 % v2;
+        const v1 = getValue(inst.arg1, frame);
+        const v2 = getValue(inst.arg2, frame);
+        const rem = Number(v1) % Number(v2);
+        frame.set(inst.result, (v1 instanceof PyFloat || v2 instanceof PyFloat) ? new PyFloat(rem) : rem);
         break;
       }
       case ">": {
-        const v1 = getValue(inst.arg1, memory);
-        const v2 = getValue(inst.arg2, memory);
-        memory[inst.result] = v1 > v2;
+        const v1 = getValue(inst.arg1, frame);
+        const v2 = getValue(inst.arg2, frame);
+        frame.set(inst.result, unwrapFloat(v1) > unwrapFloat(v2));
         break;
       }
       case "<": {
-        const v1 = getValue(inst.arg1, memory);
-        const v2 = getValue(inst.arg2, memory);
-        memory[inst.result] = v1 < v2;
+        const v1 = getValue(inst.arg1, frame);
+        const v2 = getValue(inst.arg2, frame);
+        frame.set(inst.result, unwrapFloat(v1) < unwrapFloat(v2));
         break;
       }
       case "<=": {
-        const v1 = getValue(inst.arg1, memory);
-        const v2 = getValue(inst.arg2, memory);
-        memory[inst.result] = v1 <= v2;
+        const v1 = getValue(inst.arg1, frame);
+        const v2 = getValue(inst.arg2, frame);
+        frame.set(inst.result, unwrapFloat(v1) <= unwrapFloat(v2));
         break;
       }
       case ">=": {
-        const v1 = getValue(inst.arg1, memory);
-        const v2 = getValue(inst.arg2, memory);
-        memory[inst.result] = v1 >= v2;
+        const v1 = getValue(inst.arg1, frame);
+        const v2 = getValue(inst.arg2, frame);
+        frame.set(inst.result, unwrapFloat(v1) >= unwrapFloat(v2));
         break;
       }
       case "==": {
-        const v1 = getValue(inst.arg1, memory);
-        const v2 = getValue(inst.arg2, memory);
-        memory[inst.result] = v1 === v2;
+        const v1 = getValue(inst.arg1, frame);
+        const v2 = getValue(inst.arg2, frame);
+        frame.set(inst.result, unwrapFloat(v1) === unwrapFloat(v2));
         break;
       }
-
+   
       case "and": {
-        const v1 = getValue(inst.arg1, memory);
-        const v2 = getValue(inst.arg2, memory);
-        memory[inst.result] = !!(v1 && v2);
+        const v1 = getValue(inst.arg1, frame);
+        const v2 = getValue(inst.arg2, frame);
+        frame.set(inst.result, !!(v1 && v2));
         break;
       }
       case "or": {
-        const v1 = getValue(inst.arg1, memory);
-        const v2 = getValue(inst.arg2, memory);
-        memory[inst.result] = !!(v1 || v2);
+        const v1 = getValue(inst.arg1, frame);
+        const v2 = getValue(inst.arg2, frame);
+        frame.set(inst.result, !!(v1 || v2));
         break;
       }
       case "not": {
-        const v1 = getValue(inst.arg1, memory);
-        memory[inst.result] = !v1;
+        const v1 = getValue(inst.arg1, frame);
+        frame.set(inst.result, !v1);
         break;
       }
-      // NEW: unary minus (see UnaryExpression fix in tacGenerator.js).
       case "NEG": {
-        const v1 = getValue(inst.arg1, memory);
-        memory[inst.result] = -v1;
+        const v1 = getValue(inst.arg1, frame);
+        frame.set(inst.result, -v1);
         break;
       }
-    
       case "ARRAY_NEW": {
-        memory[inst.result] = [];
+        frame.set(inst.result, []);
         break;
       }
       case "ARRAY_PUSH": {
-        const val = getValue(inst.arg1, memory);
-        if (!Array.isArray(memory[inst.result])) memory[inst.result] = [];
-        memory[inst.result].push(val);
+        const val = getValue(inst.arg1, frame);
+        if (!Array.isArray(frame.get(inst.result))) frame.set(inst.result, []);
+        frame.get(inst.result).push(val);
         break;
       }
       case "ARRAY_GET": {
-        const arr = memory[inst.arg1];
-        const idx = getValue(inst.arg2, memory);
-        memory[inst.result] = Array.isArray(arr) ? arr[idx] : undefined;
+        const arr = frame.get(inst.arg1);
+        const idx = getValue(inst.arg2, frame);
+        frame.set(inst.result, Array.isArray(arr) ? arr[idx] : undefined);
         break;
       }
       case "ARRAY_SET": {
-        const idx = getValue(inst.arg1, memory);
-        const val = getValue(inst.arg2, memory);
-        if (!Array.isArray(memory[inst.result])) memory[inst.result] = [];
-        memory[inst.result][idx] = val;
+        const idx = getValue(inst.arg1, frame);
+        const val = getValue(inst.arg2, frame);
+        if (!Array.isArray(frame.get(inst.result))) frame.set(inst.result, []);
+        frame.get(inst.result)[idx] = val;
         break;
       }
       case "PARAM": {
-        const val = getValue(inst.arg1, memory);
+        const val = getValue(inst.arg1, frame);
         params.push(val);
         break;
       }
       case "POPPARAM": {
         if (params.length > 0) {
-          memory[inst.result] = params.shift();
+          frame.set(inst.result, params.shift());
         }
         break;
       }
       case "CALL": {
         if (inst.arg1 === "print") {
-          output.push(params.join(" "));
+          output.push(params.map(formatForOutput).join(" "));
           params = [];
         } else if (inst.arg1 === "input") {
           let val = inputQueue.shift();
           if (val === undefined) val = "";
-          memory[inst.result] = val;
+          frame.set(inst.result, val);
           params = [];
         } else if (inst.arg1 === "int") {
           const argVal = params.length > 0 ? params.shift() : 0;
           const parsed = parseInt(argVal, 10);
-          memory[inst.result] = isNaN(parsed) ? 0 : parsed;
+          frame.set(inst.result, isNaN(parsed) ? 0 : parsed);
+          params = [];
+        } else if (inst.arg1 === "float") {
+          // NEW: float(x) builtin — was missing entirely, calls to it
+          // fell through with no case and silently returned undefined.
+          const argVal = params.length > 0 ? params.shift() : 0;
+          const parsed = parseFloat(argVal);
+          frame.set(inst.result, new PyFloat(isNaN(parsed) ? 0 : parsed));
+          params = [];
         } else if (inst.arg1 === "str") {
           const argVal = params.length > 0 ? params.shift() : "";
-          memory[inst.result] = String(argVal);
+          frame.set(inst.result, formatForOutput(argVal));
           params = [];
         } else if (inst.arg1 === "len") {
           // NEW: len(arr) / len(str) builtin.
           const argVal = params.length > 0 ? params.shift() : undefined;
-          memory[inst.result] = (Array.isArray(argVal) || typeof argVal === "string")
+          frame.set(inst.result, (Array.isArray(argVal) || typeof argVal === "string")
             ? argVal.length
-            : 0;
+            : 0);
           params = [];
         } else if (labels.hasOwnProperty(inst.arg1)) {
-          callStack.push({ returnAddress: pc + 1, targetTemp: inst.result });
+  
+          callStack.push({ returnAddress: pc + 1, targetTemp: inst.result, callerFrame: frame });
+          frame = new Frame(globalFrame);
           pc = labels[inst.arg1];
-          continue; // Direct jump to function label
+          continue; 
         }
         break;
       }
       case "RETURN": {
-        const retVal = getValue(inst.arg1, memory);
+        const retVal = getValue(inst.arg1, frame);
         if (callStack.length > 0) {
-          const frame = callStack.pop();
-          if (frame.targetTemp) {
-            memory[frame.targetTemp] = retVal;
+          const callInfo = callStack.pop();
+          frame = callInfo.callerFrame; // restore caller's frame
+          if (callInfo.targetTemp) {
+            frame.set(callInfo.targetTemp, retVal);
           }
-          pc = frame.returnAddress;
+          pc = callInfo.returnAddress;
           continue; // Direct jump back after function call
         }
         break;
       }
       case "IFFALSE": {
-        const cond = getValue(inst.arg1, memory);
+        const cond = getValue(inst.arg1, frame);
         if (!cond) {
           if (labels.hasOwnProperty(inst.result)) {
             pc = labels[inst.result];

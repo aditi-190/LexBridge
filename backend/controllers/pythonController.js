@@ -1,15 +1,9 @@
-const { compileAndExecutePython } = require("../python_hub/compilePython");
+const { compilePythonCode } = require("../services/pythonCompiler");
 
 exports.compilePythonCode = (req, res) => {
   const { code, input } = req.body;
 
-  if (!code || code.trim() === "") {
-    return res.status(400).json({
-      errors: ["Please provide valid Python code."]
-    });
-  }
-
-  const result = compileAndExecutePython(code, input || "");
+  const result = compilePythonCode(code, input || "");
 
   if (!result.success) {
     return res.status(200).json({

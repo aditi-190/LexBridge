@@ -68,13 +68,22 @@ class Parser {
     if (token.type === "WHILE") {
       return this.parseWhileStatement();
     }
-    // FIX: `for` had no parsing path at all before.
     if (token.type === "FOR") {
       return this.parseForStatement();
     }
   
     if (token.type === "DO") {
       return this.parseDoWhileStatement();
+    }
+    if (token.type === "BREAK") {
+      this.consume("BREAK");
+      this.consumeStatementEnd();
+      return { type: "BreakStatement" };
+    }
+    if (token.type === "CONTINUE") {
+      this.consume("CONTINUE");
+      this.consumeStatementEnd();
+      return { type: "ContinueStatement" };
     }
     return this.parseExpressionStatement();
   }
@@ -165,7 +174,6 @@ class Parser {
     return { type: "ForStatement", varName, iterable, body };
   }
 
-  // NEW (custom extension): `do: <block> while <cond>`
   parseDoWhileStatement() {
     this.consume("DO");
     this.consume("COLON");
@@ -292,6 +300,11 @@ class Parser {
       return { type: "Literal", value: token.value };
     }
 
+    if (token.type === "BOOLEAN") {
+      this.consume("BOOLEAN");
+      return { type: "Literal", value: token.value };
+    }
+
     if (token.type === "STRING") {
       this.consume("STRING");
       return { type: "Literal", value: token.value };
@@ -361,7 +374,6 @@ class Parser {
       (token.line ? ` at line ${token.line}` : "")
     );
   }
-
   buildFStringExpression(template) {
     const parts = [];
     const regex = /\{([^}]*)\}/g;
@@ -373,14 +385,7 @@ class Parser {
         parts.push({ type: "Literal", value: template.slice(lastIndex, match.index) });
       }
       const exprSrc = match[1].trim();
-      if (/^-?[0-9]+(\.[0-9]+)?$/.test(exprSrc)) {
-        parts.push({
-          type: "Literal",
-          value: exprSrc.includes(".") ? parseFloat(exprSrc) : parseInt(exprSrc, 10)
-        });
-      } else {
-        parts.push({ type: "Identifier", name: exprSrc });
-      }
+      parts.push(this._parseInlineExpression(exprSrc));
       lastIndex = regex.lastIndex;
     }
 
@@ -397,6 +402,19 @@ class Parser {
       expr = { type: "BinaryExpression", op: "+", left: expr, right: parts[i] };
     }
     return expr;
+  }
+
+
+  _parseInlineExpression(exprSrc) {
+    if (exprSrc === "") {
+      return { type: "Literal", value: "" };
+    }
+    const Lexer = require("./lexer");
+    const innerTokens = [];
+    new Lexer("")._tokenizeLine(exprSrc, innerTokens, 0);
+    innerTokens.push({ type: "EOF", value: null });
+    const innerParser = new Parser(innerTokens);
+    return innerParser.parseExpression();
   }
 }
 
