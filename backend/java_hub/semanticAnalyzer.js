@@ -54,7 +54,7 @@ class SemanticAnalyzer {
         switch (node.type) {
             case "VariableDeclaration":
                 this.visitVariableDeclaration(node);
-     
+                break;
             case "MultiVariableDeclaration":
                 for (const decl of node.declarations) {
                     this.visitVariableDeclaration(decl);

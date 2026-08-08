@@ -11,7 +11,11 @@ class Parser {
             { type: "COMMENT", regex: /^(\/\/[^\n]*|\/\*[\s\S]*?\*\/)/ },
             { type: "KEYWORD", regex: /^(public|private|protected|class|static|void|int|double|float|char|long|short|byte|boolean|String|if|else|while|do|for|return|new|Scanner|import|break)\b/ },
             { type: "IDENTIFIER", regex: /^[a-zA-Z_][a-zA-Z0-9_.]*/ },
-        
+            // NUMBER: allow Java's f/F/d/D/L literal suffixes (e.g. 120.50f,
+            // 3.14d, 100L) as part of the match, so the suffix letter isn't
+            // left behind to be re-tokenized as a bogus IDENTIFIER — that
+            // stray token was derailing statement parsing entirely and is
+            // why "float price = 120.50f;" ended up mis-parsed as garbage.
             { type: "NUMBER", regex: /^\d+(\.\d+)?[fFdDlL]?/ },
             { type: "STRING", regex: /^"[^"]*"/ },
             { type: "CHAR", regex: /^'[^']*'/ },
@@ -31,7 +35,10 @@ class Parser {
                     if (type !== "SPACE" && type !== "COMMENT") {
                         let value = match[0];
                         if (type === "NUMBER") {
-                           
+                            // The regex above intentionally consumes a
+                            // trailing f/F/d/D/L suffix so the cursor
+                            // advances past it, but the suffix itself
+                            // isn't part of the numeric value.
                             value = value.replace(/[fFdDlL]$/, "");
                         }
                         tokens.push({ type, value });

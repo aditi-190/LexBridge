@@ -1,3 +1,4 @@
+console.log("VERSION CHECK: compileJava.js loaded at", new Date().toISOString());
 const Parser = require("./parser");
 const SemanticAnalyzer = require("./semanticAnalyzer");
 const TACGenerator = require("./tacGenerator");

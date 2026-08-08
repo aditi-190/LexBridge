@@ -65,7 +65,8 @@ class TACGenerator {
                 break;
             }
 
-        
+            // NEW: int a = 1, b = 2; — emit each declarator's TAC in order,
+            // same as if they'd been written as separate statements.
             case "MultiVariableDeclaration": {
                 for (const decl of node.declarations) {
                     this.generateStatement(decl);
