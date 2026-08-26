@@ -10,9 +10,8 @@ console.log("compileC.js loaded");
 function compileC(sourceCode,input=[]) {
      
 
-    // =========================
     // 1. Lexical Analysis
-    // =========================
+    
 
     const lexical = tokenizeC(sourceCode);
     console.log("\n===== TOKENS =====");
@@ -32,9 +31,9 @@ lexical.tokens.forEach(token => {
     }
 
 
-    // =========================
+
     // 2. Syntax Analysis
-    // =========================
+
 
     const syntax = parseC(lexical.tokens);
     console.log("\n===== AST =====");
@@ -55,9 +54,9 @@ console.log(JSON.stringify(syntax.ast, null, 2));
     const ast = syntax.ast;
 
 
-    // =========================
+
     // 3. Symbol Table
-    // =========================
+
 
 const symbolResult =
     buildSymbolTable(ast);
@@ -83,9 +82,9 @@ console.log(symbolResult.symbolTable);
 
     }
 
-    // =========================
+    
     // 4. Semantic Analysis
-    // =========================
+    
 
     const semantic =
         analyzeSemantic(ast);
@@ -112,9 +111,9 @@ console.log(JSON.stringify(semantic, null, 2));
 
 
 
-    // =========================
+    
     // 5. TAC Generation
-    // =========================
+
 
     const tacResult =
         generateTAC(ast);
@@ -135,9 +134,9 @@ console.log(JSON.stringify(semantic, null, 2));
     );
 
 
-    // =========================
+
     // 6. Program Execution
-    // =========================
+
 const execution = executeProgram(ast, input);
 
 console.log("\n===== EXECUTION RESULT =====");
@@ -184,9 +183,9 @@ console.log(JSON.stringify(execution, null, 2));
     }
 
 
-    // =========================
+
     // 7. FINAL RESULT
-    // =========================
+
 
     return {
 
@@ -221,9 +220,9 @@ console.log(JSON.stringify(execution, null, 2));
 }
 
 
-// ==========================================
+
 // EXPORT
-// ==========================================
+
 
 module.exports = {
 

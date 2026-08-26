@@ -10,7 +10,7 @@ const connectDB = async () => {
     console.log("✅ MongoDB Connected");
   } catch (error) {
     console.log("❌ Database Connection Failed");
-    console.log(error); // পুরো error দেখাবে
+    console.log(error); 
   }
 };
 
