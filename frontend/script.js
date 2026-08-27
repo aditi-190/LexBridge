@@ -16,36 +16,15 @@ buttons.forEach(button => {
 
         }
 
-        // Java অথবা Python page এখনো না থাকলে
-        if (
-            link.includes("java") ||
-            link.includes("python")
-        ) {
-
-            const go = confirm(
-                "This compiler is under development.\n\nDo you want to continue?"
-            );
-
-            if (go) {
-
-                window.location.href = link;
-
-            }
-
-            return;
-
-        }
-
-        // C অথবা C++ page
         window.location.href = link;
 
     });
 
 });
 
-// =====================================
+
 // Card Hover Animation
-// =====================================
+
 
 const cards = document.querySelectorAll(".card");
 
@@ -65,8 +44,8 @@ cards.forEach(card => {
 
 });
 
-// =====================================
+
 // Console Message
-// =====================================
+
 
 console.log("LexBridge Home Loaded Successfully.");
